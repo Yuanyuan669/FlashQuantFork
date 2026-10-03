@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlashQuant · 舆情 Dashboard</title>
+<style>
+:root{
+  --bg:#0d1117;--panel:#161b22;--border:#21262d;--fg:#c9d1d9;--dim:#8b949e;
+  --green:#3fb950;--red:#f85149;--blue:#58a6ff;--gold:#d29922;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;padding:24px}
+.wrap{max-width:1200px;margin:0 auto}
+h1{font-size:20px;font-weight:600}
+.meta{color:var(--dim);font-size:12px;margin:4px 0 20px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.card .v{font-size:24px;font-weight:700}
+.card .k{color:var(--dim);font-size:12px;margin-top:2px}
+.card.g .v{color:var(--green)}.card.r .v{color:var(--red)}.card.b .v{color:var(--blue)}.card.y .v{color:var(--gold)}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:20px}
+.panel h2{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--fg)}
+.panel h2 small{color:var(--dim);font-weight:400;margin-left:8px}
+.hbar{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
+.hbar .label{width:130px;text-align:right;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbar .track{flex:1;background:var(--border);border-radius:3px;height:14px;overflow:hidden}
+.hbar .fill{height:100%;background:var(--blue);border-radius:3px;min-width:1px}
+.hbar .num{width:56px;color:var(--dim)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{color:var(--dim);text-align:left;font-weight:500;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:hover td{background:#1c2129}
+.chip{display:inline-block;padding:0 6px;border-radius:10px;font-size:11px;margin:1px 2px 1px 0}
+.chip.pos{background:#0d4429;color:var(--green)}.chip.neg{background:#5c1a1a;color:var(--red)}.chip.mid{background:#30363d;color:var(--dim)}
+.chip.theme{background:#1f3a5f;color:var(--blue)}
+.chip.sym{background:#2d2a12;color:var(--gold)}
+.ibar{display:inline-block;height:10px;background:linear-gradient(90deg,#1f6feb,#58a6ff);border-radius:2px;vertical-align:middle}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+.controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;font-size:12px}
+.controls input,.controls select{background:#0d1117;border:1px solid var(--border);color:var(--fg);border-radius:6px;padding:4px 8px}
+.controls input[type=text]{width:220px}
+.empty{color:var(--dim);text-align:center;padding:24px}
+.hint{color:var(--dim);font-size:12px;margin-top:8px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:800px){.two{grid-template-columns:1fr}}
+svg text{fill:var(--dim);font-size:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚡ FlashQuant · 舆情 Dashboard</h1>
+  <div class="meta">生成时间 <span id="gen"></span> ｜ 数据区间 <span id="range"></span>（近 <span id="days"></span> 天）｜ 刷新：<code>python scripts/generate_dashboard.py</code></div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="panel">
+    <h2>市场日度情绪 <small>daily_sentiment.json · 近 60 天</small></h2>
+    <div id="market"></div>
+    <div id="symbols" style="margin-top:12px"></div>
+  </div>
+
+  <div class="two">
+    <div class="panel">
+      <h2>来源分布 <small>Top 15</small></h2>
+      <div id="sources"></div>
+    </div>
+    <div class="panel">
+      <h2>情绪分布</h2>
+      <div id="sentdist"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>高影响新闻 <small>按影响分排序 · Top <span id="topn"></span></small></h2>
+    <div class="controls">
+      <input type="text" id="q" placeholder="搜索标题...">
+      <select id="src"><option value="">全部来源</option></select>
+      <select id="sort">
+        <option value="impact">按影响分</option>
+        <option value="time">按时间</option>
+        <option value="sent">按情绪</option>
+      </select>
+      <label>影响分 ≥ <span id="imv">0</span> <input type="range" id="imin" min="0" max="100" value="0"></label>
+      <label><input type="checkbox" id="onlyth"> 只看命中主题</label>
+    </div>
+    <div id="newstable"></div>
+  </div>
+
+  <div class="panel">
+    <h2>告警历史 <small>alerts.jsonl · 仅记录实际推送过的告警</small></h2>
+    <div id="alerttable"></div>
+  </div>
+</div>
+
+<script id="payload" type="application/json">{"generated_at": "2026-10-03 19:26:44", "days": 7, "range": "2026-09-27 ~ 2026-10-03", "kpi": {"total": 3130, "themed": 1535, "avg_impact": 0.315, "pos": 460, "neg": 383, "alerts": 0, "sources": 36}, "source_stats": [{"source": "东财全球资讯", "count": 947, "avg_sentiment": 0.049}, {"source": "富途牛牛", "count": 254, "avg_sentiment": 0.024}, {"source": "AP", "count": 252, "avg_sentiment": -0.079}, {"source": "华尔街见闻", "count": 251, "avg_sentiment": 0.009}, {"source": "Reuters", "count": 162, "avg_sentiment": -0.034}, {"source": "特朗普 Truth Social", "count": 153, "avg_sentiment": 0.049}, {"source": "中国外交部", "count": 118, "avg_sentiment": 0.045}, {"source": "新浪7x24", "count": 111, "avg_sentiment": 0.009}, {"source": "国会听证会", "count": 111, "avg_sentiment": -0.032}, {"source": "金十快讯", "count": 109, "avg_sentiment": 0.041}, {"source": "财联社", "count": 103, "avg_sentiment": 0.024}, {"source": "同花顺7x24", "count": 103, "avg_sentiment": -0.012}, {"source": "彭博", "count": 102, "avg_sentiment": -0.119}, {"source": "ISM PMI", "count": 53, "avg_sentiment": 0.065}, {"source": "中国宏观数据", "count": 51, "avg_sentiment": 0.105}], "top_news": [{"ts": "2026-10-02 13:09", "source": "中国人民银行", "title": "比降准更猛！央行三大工具齐发，万亿隔夜逆回购创纪录，跨季稳了", "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxOZEg5VURmSlRVWW9RaUVFekVMZzNpLVBRbEhlOXNRTjhOWFVyVExvb2VINmhDbkVzcjN5dHBJczNSWnpIMDFrZU5OYnpnLXBBaFd6QVIwd0xFN0Z1bHRZRG1tRU9XRVF2c1cwOUNoRmVXTnR2clFrd0gyVmk4US1CM0E3bnpJeUk1cTZkLQ?oc=5", "sentiment": 0.8, "impact": 0.56, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-29 21:39", "source": "中国人民银行", "title": "央行：PSL降息扩围 加大对“六张网”建设的金融支持", "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE5FZUNIbVhydFNJRFc2TzQyamNNS3MzZ0c0RWU4X1VNSWUtLVhfUTd6WjBwWThkNktqWFdWVXpqUnJvVmtNbkwwVjdQV1RxcS1ZS0xfd3pqaHdhb2JLTnFuR0duQ096c1FTdkVnWg?oc=5", "sentiment": 0.8, "impact": 0.56, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-29 21:09", "source": "中国人民银行", "title": "重大利好：央行连发四张牌，抵押补充贷款降息扩围、增加7000亿再贷款额度", "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE5fdnllNnA0R1d4X0VMd2hDcC15cEhFejJwdWRFVjhieE9RUG5HNEpvdFgxOXZFRElqNW1xTE9rc2RhMVJLT19EdU9ibU9FUXhzNHJMdHdEX1Z1dEdlb3ZxM2VEcw?oc=5", "sentiment": 0.8, "impact": 0.56, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-29 15:08", "source": "中国人民银行", "title": "重大利好：央行连发四张牌，抵押补充贷款降息扩围、增加7000亿再贷款额度", "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE5RUXhPb2prTXlDR0x6X0FNcXFlRWxXY2Jrbzl5Rlhhc0ZfWEt4R05YQmRiTkYzQzJqaU00V1hncFJ3RjBqT2pnTE9wZnJMcWFYdzR3enp6QmllWUUyeEo2XzNnX3VuUQ?oc=5", "sentiment": 0.8, "impact": 0.56, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-29 15:00", "source": "中国人民银行", "title": "​央行：PSL降息扩围，加大对“六张网”建设的金融支持", "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE5nRlc3dW1GbTllRXpWMS1tVWlJcFBSUmxIUkRRVGZ3cktpSFVnNVdkMEprYWNPcDJrczRuRHRBNzRQZ19lQWpLdm92dDhScl9aSURvdnk1TDJhY3VVMmZlRi1zTUtLdw?oc=5", "sentiment": 0.8, "impact": 0.56, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-29 09:58", "source": "中国人民银行", "title": "中国央行“出手”：“降息”、加大“六张网”金融支持、扩大“再贷款额度”", "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE80RDlvTjkwRGtyaHNPWHJqNEU5eU1uUUdTT2JKSFdZN2U1bzZRM0JJeTVIbDA0V3otblNfX0k2bEJvY002UUVoTC1NNDRZZXpqd1N3?oc=5", "sentiment": 0.8, "impact": 0.56, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-29 09:29", "source": "中国人民银行", "title": "财政货币协同发力 首套房贷贴息落地 定向降息精准支持“六张网”建设", "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE9WVEtjdzhBYXF4dHFLaE5SQkZEMHhzbGRUTlZxOFlFczB0RUhsVzRxbVNQdTluT3N2WXpheWxXbUpBVGNUNmZVWExBM3o5ZWdXdlFv?oc=5", "sentiment": 0.8, "impact": 0.56, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-29 21:12", "source": "英国央行BOE", "title": "Bank of England's Taylor views case for rate hike as 'not compelling'", "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxPX09OTmNNVUhMVmVDc2JFUlpXTDlwZlVKU1ZveTNCc1RLenViaElTS0N4ODJaRWFRUEZsakw1WlR0R284MEhXejQ4YTRGUVdCNDhqdWpTdS1wblZDX3lueWVQbXhycG9qeHJEN2J5YURlZ3FDQ0lVTWNWdGQyUzdtWVVOX0NWTFdNdjB0VW1DR3g?oc=5", "sentiment": -0.8, "impact": 0.556, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-09-29 17:22", "source": "英国央行BOE", "title": "BoE's Taylor Questions Practicality of Single Rate Hike for Inflation", "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxOUzhWcUVRZG5HS2Y0T0JVNHdpbTZ3TllNR2p1dnFscXNHRUxyZzdFdVlhRHl3T29ZSWN0ckNub05UeThYSlVob3FacDF5Nk9RV09ycmQtTjZFUUh0Y0t5My1Oa1VLNm5KYm5LWTBud2JfTlRLTmd1OFVYWVNJMnViejdqakpmZVBjVmwyZVhmUVVjMXFQUTBwbFNB?oc=5", "sentiment": -0.8, "impact": 0.556, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-09-29 16:15", "source": "英国央行BOE", "title": "Bank of England's Taylor views case for rate hike as 'not compelling'", "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxNemZwYzNjOUNiNlVXSE83SmFZZVZrdGhZQTBjM1lZay05N2VsVE4wMklnRHJuTDhHbC1hWjYwVFJIZW5BZnZLS0F2UEx2Y0dRcldfM2JVZDZzbERiR0JXYjNQSkhmemRybjF4NnhLS2N3QUNhTmJZQlhZQkdPYWFNSm1OUEk5dDVaMVVxQlBkZnRZUGlPVmxOOG94czJnVThxa3c?oc=5", "sentiment": -0.8, "impact": 0.556, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-03 10:17", "source": "东财全球资讯", "title": "商务部：对原产于欧盟的进口对硝基甲苯发起反倾销立案调查", "url": "https://finance.eastmoney.com/a/202610033888465997.html", "sentiment": -0.923, "impact": 0.553, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-27 02:58", "source": "特朗普 Truth Social", "title": "The American People elected me to deliver HISTORIC Economic Results, and now, I have a new responsibility, reporting our", "url": "https://www.trumpstruth.org/statuses/41947", "sentiment": 0.889, "impact": 0.552, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-03 10:13", "source": "华尔街见闻", "title": "商务部：对原产于欧盟的进口对硝基甲苯发起反倾销立案调查", "url": "https://wallstreetcn.comhttps://wallstreetcn.com/livenews/3173853", "sentiment": -0.909, "impact": 0.55, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-03 15:36", "source": "财联社", "title": "阿联酋检方：迪拜航空涉事副驾驶使用消防斧实施“恐怖袭击”", "url": "", "sentiment": -0.75, "impact": 0.545, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-02 12:38", "source": "彭博", "title": "Bond Traders See Weak Jobs Data Letting Fed Delay Rate Hikes", "url": "https://www.bloomberg.com/news/articles/2026-10-02/bond-traders-pull-back-on-fed-hike-bets-after-soft-jobs-data", "sentiment": -0.857, "impact": 0.544, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-01 00:02", "source": "财联社", "title": "俄罗斯经济部：8月GDP同比增长0.8%", "url": "", "sentiment": 0.833, "impact": 0.541, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-01 21:25", "source": "ISM PMI", "title": "U.S. September Manufacturing PMI at 54.5—Ninth Straight Month of Expansion, Cost Pressures Surge 6.8 Points", "url": "https://news.google.com/rss/articles/CBMidkFVX3lxTE81UXlQY21fbVN6Q2E5eTIteG1POWNOSjZVQXRwUDJ3ak82LXZiemxGaG9CU3ozZ09wUE12THhTVG95bmJzd3dpXzExeS1lVXNDTmQ0M25neERDVFpRVEtYcmd0RF9QaGFZVHNYSWh5RG9oajIyb0E?oc=5", "sentiment": 0.8, "impact": 0.54, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-03 10:19", "source": "东财全球资讯", "title": "商务部新闻发言人就对原产于欧盟的进口对硝基甲苯发起反倾销调查答记者问", "url": "https://finance.eastmoney.com/a/202610033888465842.html", "sentiment": -0.857, "impact": 0.537, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-28 07:51", "source": "欧洲央行ECB", "title": "Week Ahead: US Payrolls Test Rate Path After Fed and ECB Hikes", "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxPQTRsVFctTzhkWlpYMTFsSXJyVUY3RWNxalNtZ05rc05XX1REbGhvZ1ZqYURtVmRvbXZ2OWV1NVJGYXZZendMc0MtWVZiMlFzd1pveWhXbmhEMHR1Ui1jQjN0bkcxREFlZVVIYnA0U0VFRUR0X0Q4LV9HcXpFTnVoYXNDWU9nWm81Qy1qVXh3V3QtRnVoblVwRDYzV094RGc?oc=5", "sentiment": -0.667, "impact": 0.535, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-09-28 07:51", "source": "英国央行BOE", "title": "Week Ahead: US Payrolls Test Rate Path After Fed and ECB Hikes", "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxPQTRsVFctTzhkWlpYMTFsSXJyVUY3RWNxalNtZ05rc05XX1REbGhvZ1ZqYURtVmRvbXZ2OWV1NVJGYXZZendMc0MtWVZiMlFzd1pveWhXbmhEMHR1Ui1jQjN0bkcxREFlZVVIYnA0U0VFRUR0X0Q4LV9HcXpFTnVoYXNDWU9nWm81Qy1qVXh3V3QtRnVoblVwRDYzV094RGc?oc=5", "sentiment": -0.667, "impact": 0.535, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-03 15:58", "source": "金十快讯", "title": "【阿联酋检方：迪拜航空涉事副驾驶使用消防斧实施“恐怖袭击”】金十数据10月3日讯，当地时间10月3日，阿联酋总检察长沙姆西表示，迪拜航空FZ1073航班副驾驶在飞行途中袭击机长，并企图控制飞机的行为是“恐怖袭击”。总检察长表示，副驾驶在飞行", "url": "", "sentiment": -0.75, "impact": 0.535, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-03 15:36", "source": "华尔街见闻", "title": "阿联酋检方：迪拜航空涉事副驾驶使用消防斧实施“恐怖袭击”", "url": "https://wallstreetcn.comhttps://wallstreetcn.com/livenews/3173865", "sentiment": -0.75, "impact": 0.535, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-03 00:02", "source": "东财全球资讯", "title": "俄罗斯二季度GDP同比终值增长1.3% 初值增长1.3%", "url": "https://finance.eastmoney.com/a/202610033888424368.html", "sentiment": 0.8, "impact": 0.535, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-01 00:09", "source": "金十快讯", "title": "【欧洲航空安全局就沙特空域发布安全建议】金十数据10月1日讯，欧洲航空安全局9月30日表示，鉴于也门胡塞武装近期扩大对沙特阿拉伯目标的袭击，相关空域的民航安全风险上升，建议航空运营商不要在其划定的沙特部分空域的任何高度飞行。欧洲航空安全局在", "url": "", "sentiment": -0.8, "impact": 0.535, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-01 00:07", "source": "华尔街见闻", "title": "欧洲航空安全局就沙特空域发布安全建议", "url": "https://wallstreetcn.comhttps://wallstreetcn.com/livenews/3173059", "sentiment": -0.8, "impact": 0.535, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-01 00:02", "source": "东财全球资讯", "title": "俄罗斯经济部：8月GDP同比增长0.8%", "url": "https://finance.eastmoney.com/a/202610013887961469.html", "sentiment": 0.833, "impact": 0.531, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-03 11:37", "source": "特朗普 Truth Social", "title": "The Fake News reports regarding the ongoing investigation into the disastrous renovation of the Federal Reserve Building", "url": "https://www.trumpstruth.org/statuses/42100", "sentiment": -0.8, "impact": 0.53, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-02 12:12", "source": "特朗普 Truth Social", "title": "Republicans in the Senate have to get moving on what I call the “No More Changing of Clocks Act,” officially known as Th", "url": "https://www.trumpstruth.org/statuses/42077", "sentiment": 0.8, "impact": 0.53, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-01 10:25", "source": "特朗普 Truth Social", "title": "RT @realDonaldTrumpIn New York, I met with Lee Jae Myung, the President of the Republic of Korea, and we agreed to launc", "url": "https://www.trumpstruth.org/statuses/42048", "sentiment": 0.8, "impact": 0.53, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-01 08:41", "source": "特朗普 Truth Social", "title": "In New York, I met with Lee Jae Myung, the President of the Republic of Korea, and we agreed to launch 200 Billion Dolla", "url": "https://www.trumpstruth.org/statuses/42037", "sentiment": 0.8, "impact": 0.53, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-09-30 13:01", "source": "Reuters", "title": "Oil gains as stalled US-Iran talks trump supply recovery", "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxPbEZNSGlvd0hfTjdOVTQxTEVYczRjUjdId3NlSGJDSV90UVVjTGhjaFF2OS1xckpOWElrcWRoUXNPa29WTHhsLW9yWVc2N1REdXZONl9iZ2ZUSkNOQ0xndE16LWpMa3c3T2FHWE0yajBlek1La3hVeTVnWkpLc2hhTTRNMnVILWY0RG9VbzVVZnZGV0JmM3VJWkNhVmlfNDlVMThOSVNtNlR3cFJUekNpMVZ3aE03Zw?oc=5", "sentiment": 0.8, "impact": 0.53, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-09-29 23:59", "source": "AP", "title": "Carney accuses US steelmaker of betraying Canadian workers after layoffs tied to Trump tariffs", "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOZ19OZDdTMUpDdnFOQXN0d1JVS2xESlJsa1dlUjFHNVNrYnV4N2RKUlYxUnNTa2t1WV84NVVSY2Y4TGRkZW4tTUhEQW01T0d4UW5ITkhjLUFLdkxfZzY5UW5GSG9XelE1OXBScGt4WUpsX0F6cGFkM2hWM2VXdDc4ZG52UFlidXp0TnZtYmxWcS1vdTluek1OdjdwTmhRRE9zYU1nQlNwRUU1VW9nS0E?oc=5", "sentiment": -0.8, "impact": 0.53, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-09-28 19:33", "source": "特朗普 Truth Social", "title": "Justice Department charges four aliens in Pennsylvania with election fraud:", "url": "https://www.trumpstruth.org/statuses/42009", "sentiment": -0.8, "impact": 0.53, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-09-28 11:15", "source": "彭博", "title": "US Stocks Pare Declines as Trump Open to Iran Sanctions Relief", "url": "https://www.bloomberg.com/news/articles/2026-09-28/us-stocks-decline-as-middle-east-stalemate-pushes-oil-higher", "sentiment": -0.8, "impact": 0.53, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-09-28 01:42", "source": "AP", "title": "New Jersey Republican Tom Kean Jr. and Democrat Rebecca Bennett clash over war in Iran, tariffs", "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxNQ1hZbXQwQ081U1dwTWEwZG5zLXlZcFVMbzdvaXRVd2loUVlxVjJpN0Z2NENZamJiRmd2VFV1N3BCU0RrVnJzVE5QWTdjdFBSNmN6a2pGM3FUSjEwLUdhcFh3QmI0R1lNdkFJdHhZa1FkSzFkVjhRdUIwY0dGMllqQ2hCVUlEblctZDU4ODQ4VF9OeWVoOUhlc3FKQVhaeDFZdHc2cGl1U21WTFg5NWszNg?oc=5", "sentiment": -0.8, "impact": 0.53, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-03 17:36", "source": "东财全球资讯", "title": "公牛集团已斥2.45亿元回购620万股 上半年业绩小幅增长 加大新能源和国际化布局", "url": "https://finance.eastmoney.com/a/202610033888490076.html", "sentiment": 0.875, "impact": 0.529, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-02 21:36", "source": "东财全球资讯", "title": "英伟达股价突破5月高点刷新历史新高 市值重返5.7万亿美元", "url": "https://finance.eastmoney.com/a/202610023888397817.html", "sentiment": 0.875, "impact": 0.529, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-30 18:21", "source": "东财全球资讯", "title": "良品铺子：控股股东所涉诉讼一审判决支付违约金500万元", "url": "https://finance.eastmoney.com/a/202609303887807114.html", "sentiment": -0.875, "impact": 0.529, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-30 18:05", "source": "东财全球资讯", "title": "伊朗股市再度大涨 上涨171586点", "url": "https://finance.eastmoney.com/a/202609303887799676.html", "sentiment": 0.875, "impact": 0.529, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-28 18:53", "source": "东财全球资讯", "title": "华勤技术：拟3亿元至4亿元回购公司股份", "url": "https://finance.eastmoney.com/a/202609283885326218.html", "sentiment": 0.875, "impact": 0.529, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-03 10:18", "source": "富途牛牛", "title": "商务部新闻发言人就对原产于欧盟的进口对硝基甲苯发起反倾销调查答记者问", "url": "https://news.futunn.com/flash/1000547577/spokesperson-for-the-ministry-of-commerce-answers-reporters-questions-on", "sentiment": -0.857, "impact": 0.527, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-02 20:49", "source": "中国人民银行", "title": "渣打银行预计欧洲央行将在2028年第一季度降息25个基点", "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE9ORXF4dWJMQkJnenM2MXk1NlRDZkRCSnRES1JMRFhIWWQ1X2tveVZGa3dHVlV0ZHQ3Y1hnVWdNRTkzRmpvVkRjMkQ4ZTAxeWJUazRlSkV1WVBaR2ttcWJvOWhubw?oc=5", "sentiment": 0.667, "impact": 0.527, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-02 20:45", "source": "美联储Fed", "title": "Federal Reserve Board announces approval of application by Fleur Capital Corporation", "url": "https://www.federalreserve.gov/newsevents/pressreleases/orders20261002a.htm", "sentiment": 0.667, "impact": 0.527, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-02 11:42", "source": "中国人民银行", "title": "渣打银行预计欧洲央行将在2028年第一季度降息25个基点", "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE9ORXF4dWJMQkJnenM2MXk1NlRDZkRCSnRES1JMRFhIWWQ1X2tveVZGa3dHVlV0ZHQ3Y1hnVWdNRTkzRmpvVkRjMkQ4ZTAxeWJUazRlSkV1WVBaR2ttcWJvOWhubw?oc=5", "sentiment": 0.667, "impact": 0.527, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-10-01 17:45", "source": "白宫", "title": "Nearly Two Years In, President Trump Is Still Stacking Historic Wins at Record Speed", "url": "https://news.google.com/rss/articles/CBMixwFBVV95cUxPc0Zpb05fZWlSR1dfWVhXeVRURzh1dWhnYVQzY0c5UDFhYW1DT0VaeVBhcUVmcnVZSDZ2aXU0ZlVmV21Ka1pXSy1neVJPbmxCR3BsbFYyRWx6bUZjYWI3RjJYTDdlb001Ql9wV2Z6WXRvUTlHMlowaU12QlhMWHhmdlpfMWxwU0R5TFFUVFBmR1dXVmtISVE0ZktubDFDeFllZUhSVm9ZYV90b1NOd2lzcEFIbHAydWVnVk02SWJXTkJTOWV0NmRB?oc=5", "sentiment": 0.667, "impact": 0.527, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-01 17:43", "source": "白宫", "title": "Nearly Two Years In, President Trump Is Still Stacking Historic Wins at Record Speed", "url": "https://news.google.com/rss/articles/CBMixwFBVV95cUxPc0Zpb05fZWlSR1dfWVhXeVRURzh1dWhnYVQzY0c5UDFhYW1DT0VaeVBhcUVmcnVZSDZ2aXU0ZlVmV21Ka1pXSy1neVJPbmxCR3BsbFYyRWx6bUZjYWI3RjJYTDdlb001Ql9wV2Z6WXRvUTlHMlowaU12QlhMWHhmdlpfMWxwU0R5TFFUVFBmR1dXVmtISVE0ZktubDFDeFllZUhSVm9ZYV90b1NOd2lzcEFIbHAydWVnVk02SWJXTkJTOWV0NmRB?oc=5", "sentiment": 0.667, "impact": 0.527, "symbols": [], "theme": true, "lang": "en"}, {"ts": "2026-10-01 00:53", "source": "中国人民银行", "title": "降息？央行出手PSL是啥意思？", "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE5MNV9VUUJZNjNST29PdFU1MzJWenMtUXNWLWsxbVFJRk5tNTRLVkhYWG1EVmNLdmlQaTJENXdLNWZ6cmllclBuc1dlalc1anRoZk1Zcm5PYm5sN2JWMUE?oc=5", "sentiment": 0.667, "impact": 0.527, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-30 07:21", "source": "中国人民银行", "title": "央行出手：PSL降息扩容 再贷款猛增7000亿", "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxPSFMwQ0t4QTZqdGhhUjlFcVYyTF9xek5tcGlHTGVBd1I0ZzE4ZjZZbnhsUWwxRFdpYTZVYUNVY0tkeHNOTmVyQnFJWGFuMXpYOHNDcm5Xd1pnM3ZBb1JKNVJ2ejRYZFNKMnZkSEthakhFWF9oUmVKQTdiLTdEdGRUZFplRQ?oc=5", "sentiment": 0.667, "impact": 0.527, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-30 03:56", "source": "中国人民银行", "title": "渣打不排除央行降准的可能性_公司新闻_财经", "url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE0tZjdIbG1ZNFctUkNlYXhvYjdQbl96LUxkaURKb20tTTA5ejJfZm52Wm1mOExBdXNhdlBxakh3dEVHa1F3LVl6WFVfdGZHSkl0Zl9zZFVZcUNMbUVXUWFUSA?oc=5", "sentiment": 0.667, "impact": 0.527, "symbols": [], "theme": true, "lang": "zh"}, {"ts": "2026-09-30 02:04", "source": "中国人民银行", "title": "中金：房贷贴息旨在“扭转居民去杠杆态势”，PSL降息鼓励政府、国企加杠杆", "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE95RW5wY09hcXJ6c2k5RlhtbF9SSXpJLWNTTjN6eUpGWDhEYjAxYUMwXzFPWHJaWlJUODNmbjk5RFBoMi1jNGRua1dielEySHFnZXRr?oc=5", "sentiment": 0.667, "impact": 0.527, "symbols": [], "theme": true, "lang": "zh"}], "market_trend": [{"date": "2026-09-03", "score": 0.1026}, {"date": "2026-09-04", "score": 0.1739}, {"date": "2026-09-06", "score": 0.0}, {"date": "2026-09-07", "score": 0.0}, {"date": "2026-09-08", "score": -0.0889}, {"date": "2026-09-09", "score": -0.1414}, {"date": "2026-09-10", "score": -0.1791}, {"date": "2026-09-11", "score": -0.0708}, {"date": "2026-09-12", "score": -0.2}, {"date": "2026-09-13", "score": -0.3645}, {"date": "2026-09-14", "score": -0.0727}, {"date": "2026-09-15", "score": -0.0261}, {"date": "2026-09-16", "score": -0.0098}, {"date": "2026-09-17", "score": -0.3162}, {"date": "2026-09-18", "score": -0.1724}, {"date": "2026-09-20", "score": 0.0}, {"date": "2026-09-21", "score": -0.125}, {"date": "2026-09-22", "score": 0.0}, {"date": "2026-09-23", "score": 0.0508}, {"date": "2026-09-24", "score": 0.0507}, {"date": "2026-09-25", "score": 0.0476}, {"date": "2026-09-26", "score": -0.3333}, {"date": "2026-09-27", "score": -0.2222}, {"date": "2026-09-28", "score": -0.0718}, {"date": "2026-09-29", "score": 0.0222}, {"date": "2026-09-30", "score": 0.0187}, {"date": "2026-10-01", "score": 0.0379}, {"date": "2026-10-02", "score": -0.0044}, {"date": "2026-10-03", "score": 0.0559}], "symbol_trends": {"000858": [{"date": "2026-09-14", "score": 0.0}, {"date": "2026-09-16", "score": 0.0}, {"date": "2026-09-21", "score": 0.0}, {"date": "2026-09-23", "score": 0.2}, {"date": "2026-09-24", "score": 0.5}, {"date": "2026-09-30", "score": 0.0}], "600519": [{"date": "2026-09-14", "score": 0.0}, {"date": "2026-09-23", "score": 0.4}, {"date": "2026-09-28", "score": 0.0}, {"date": "2026-09-29", "score": 0.0}, {"date": "2026-09-30", "score": 0.0}]}, "alerts": []}</script>
+<script>
+const DATA = JSON.parse(document.getElementById('payload').textContent);
+const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (v,d=3) => (v>0?'+':'')+Number(v).toFixed(d);
+
+// KPI
+const k = DATA.kpi;
+document.getElementById('gen').textContent = DATA.generated_at;
+document.getElementById('range').textContent = DATA.range;
+document.getElementById('days').textContent = DATA.days;
+document.getElementById('cards').innerHTML = [
+  ['新闻总数', k.total, ''], ['命中主题', k.themed, 'y'], ['数据源', k.sources, ''],
+  ['平均影响分', k.avg_impact.toFixed(3), 'b'],
+  ['正面新闻', k.pos, 'g'], ['负面新闻', k.neg, 'r'], ['告警', k.alerts, 'r'],
+].map(([t,v,c]) => `<div class="card ${c}"><div class="v">${v}</div><div class="k">${t}</div></div>`).join('');
+
+// 情绪折线（SVG）
+function lineChart(rows, h=120){
+  if(!rows.length) return '<div class="empty">暂无数据（run.py 生成 daily_sentiment.json 后刷新）</div>';
+  const w = 900, pad = 30;
+  const vs = rows.map(r=>r.score), mx = Math.max(0.2, ...vs.map(Math.abs));
+  const x = i => pad + i*(w-2*pad)/Math.max(1,rows.length-1);
+  const y = v => h/2 - v/mx*(h/2-10);
+  const path = rows.map((r,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(r.score).toFixed(1)).join('');
+  const pts = rows.map((r,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(r.score).toFixed(1)}" r="2" fill="${r.score>=0?'#3fb950':'#f85149'}"/>`).join('');
+  const labels = [0, Math.floor(rows.length/2), rows.length-1]
+    .filter((v,i,a)=>a.indexOf(v)===i && rows[v])
+    .map(i=>`<text x="${x(i)}" y="${h-2}" text-anchor="middle">${rows[i].date}</text>`).join('');
+  return `<svg viewBox="0 0 ${w} ${h+14}" style="width:100%">`+
+    `<line x1="${pad}" y1="${h/2}" x2="${w-pad}" y2="${h/2}" stroke="#21262d"/>`+
+    `<path d="${path}" fill="none" stroke="#58a6ff" stroke-width="1.5"/>${pts}${labels}</svg>`;
+}
+document.getElementById('market').innerHTML = lineChart(DATA.market_trend);
+
+// 个股情绪
+const sym = DATA.symbol_trends;
+document.getElementById('symbols').innerHTML = Object.keys(sym).length
+  ? Object.entries(sym).map(([s,rows])=>{
+      const last = rows.length?rows[rows.length-1].score:0;
+      return `<div class="hbar"><span class="label">${esc(s)}</span><span class="track"><span class="fill" style="width:${Math.min(100,Math.abs(last)*100)}%;background:${last>=0?'#3fb950':'#f85149'}"></span></span><span class="num">${fmt(last,2)}</span></div>`;
+    }).join('')
+  : '<div class="hint">无个股情绪（A股代码出现在新闻中时积累）</div>';
+
+// 来源分布
+const mx = Math.max(1, ...DATA.source_stats.map(s=>s.count));
+document.getElementById('sources').innerHTML = DATA.source_stats.length
+  ? DATA.source_stats.map(s=>`<div class="hbar"><span class="label" title="${esc(s.source)}">${esc(s.source)}</span><span class="track"><span class="fill" style="width:${(s.count/mx*100).toFixed(1)}%"></span></span><span class="num">${s.count} 条</span></div>`).join('')
+  : '<div class="empty">暂无数据</div>';
+
+// 情绪分布
+function bucket(v){ return v<=-0.6?0 : v<=-0.2?1 : v<0.2?2 : v<0.6?3 : 4; }
+const names=['强负面','负面','中性','正面','强正面'], colors=['#f85149','#f8514988','#8b949e','#3fb95088','#3fb950'];
+const buckets=[0,0,0,0,0];
+DATA.top_news.forEach(n=>buckets[bucket(n.sentiment)]++);
+const bm=Math.max(1,...buckets);
+document.getElementById('sentdist').innerHTML = names.map((n,i)=>
+  `<div class="hbar"><span class="label">${n}</span><span class="track"><span class="fill" style="width:${(buckets[i]/bm*100).toFixed(1)}%;background:${colors[i]}"></span></span><span class="num">${buckets[i]}</span></div>`).join('');
+
+// 新闻表（可过滤）
+document.getElementById('topn').textContent = DATA.top_news.length;
+const srcSel = document.getElementById('src');
+[...new Set(DATA.top_news.map(n=>n.source))].sort().forEach(s=>{
+  const o=document.createElement('option'); o.value=s; o.textContent=s; srcSel.appendChild(o);
+});
+const sentChip = v => v>0.2?'<span class="chip pos">'+fmt(v,2)+'</span>'
+  : v<-0.2?'<span class="chip neg">'+fmt(v,2)+'</span>'
+  : '<span class="chip mid">'+fmt(v,2)+'</span>';
+function renderNews(){
+  const q=document.getElementById('q').value.toLowerCase();
+  const s=srcSel.value, sort=document.getElementById('sort').value;
+  const im=document.getElementById('imin').value/100;
+  document.getElementById('imv').textContent=im.toFixed(2);
+  const only=document.getElementById('onlyth').checked;
+  let rows=DATA.top_news.filter(n=>
+    (!q || (n.title+n.symbols.join('')).toLowerCase().includes(q)) &&
+    (!s || n.source===s) && n.impact>=im && (!only || n.theme));
+  if(sort==='time') rows=rows.slice().sort((a,b)=>b.ts.localeCompare(a.ts));
+  else if(sort==='sent') rows=rows.slice().sort((a,b)=>b.sentiment-a.sentiment);
+  document.getElementById('newstable').innerHTML = rows.length
+    ? `<table><tr><th>时间</th><th>来源</th><th>标题</th><th>情绪</th><th>影响分</th><th>标签</th></tr>`+
+      rows.map(n=>`<tr><td style="white-space:nowrap">${esc(n.ts)}</td><td style="white-space:nowrap">${esc(n.source)}</td>`+
+      `<td>${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>`:esc(n.title)}</td>`+
+      `<td>${sentChip(n.sentiment)}</td>`+
+      `<td><span class="ibar" style="width:${(n.impact*100).toFixed(0)}px"></span> ${n.impact.toFixed(3)}</td>`+
+      `<td>${n.theme?'<span class="chip theme">主题</span>':''}${n.symbols.map(x=>'<span class="chip sym">'+esc(x)+'</span>').join('')}</td></tr>`).join('')+
+      '</table>'
+    : '<div class="empty">无匹配新闻</div>';
+}
+['q','src','sort','imin','onlyth'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener(el.type==='range'?'input':'change',renderNews);
+  el.addEventListener('input',renderNews);
+});
+renderNews();
+
+// 告警表
+const alerts=DATA.alerts;
+document.getElementById('alerttable').innerHTML = alerts.length
+  ? `<table><tr><th>时间</th><th>主题</th><th>事件类型</th><th>影响分</th><th>情绪</th><th>来源</th><th>标的</th></tr>`+
+    alerts.map(a=>`<tr><td style="white-space:nowrap">${esc(a.ts)}</td><td>${esc(a.theme)}</td><td>${esc(a.event_type)}</td>`+
+    `<td>${a.impact.toFixed(3)}</td><td>${sentChip(a.score)}</td><td>${esc(a.source)}</td>`+
+    `<td>${a.symbols.map(x=>'<span class="chip sym">'+esc(x)+'</span>').join('')}</td></tr>`).join('')+'</table>'
+  : '<div class="empty">暂无告警记录（alerts.jsonl 仅在非 dry-run 推送成功后写入）</div>';
+</script>
+</body>
+</html>

@@ -14,6 +14,7 @@
 """
 
 import json
+import re
 import webbrowser
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -106,11 +107,21 @@ def collect(news_dir: Path, days: int = 7, top: int = 50) -> dict:
     # 高影响新闻
     ranked = sorted(items, key=lambda it: (float(it.get("impact") or 0),
                                            it.get("ts") or ""), reverse=True)[:top]
+
+    _GARBAGE_URL = re.compile(r"^https?://.*https?:?//", re.I)
+
+    def _safe_url(u):
+        u = (u or "").strip()
+        # 历史数据可能存在拼接坏链（如 "https://a.comhttps//b.com"，特征是 URL 内出现第二个 scheme）
+        if not u.startswith(("http://", "https://")) or _GARBAGE_URL.match(u):
+            return ""
+        return u
+
     top_news = [{
         "ts": (it.get("ts") or "")[:16].replace("T", " "),
         "source": it.get("source") or "",
         "title": (it.get("title") or it.get("content") or "")[:120],
-        "url": it.get("url") or "",
+        "url": _safe_url(it.get("url")),
         "sentiment": round(float(it.get("sentiment") or 0), 3),
         "impact": round(float(it.get("impact") or 0), 3),
         "symbols": (it.get("symbols") or [])[:6],

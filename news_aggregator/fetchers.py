@@ -8,6 +8,7 @@
 import hashlib
 import html as _html
 import os
+import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -40,6 +41,30 @@ def _parse_dt(v):
         return None
 
 
+def _normalize_url(uri: str, base: str) -> str:
+    """把来源给出的 uri/链接归一化为可点击的绝对 URL。
+
+    - 完整 URL 原样返回
+    - scheme 残缺（如缺冒号的 "https//..."、缺斜杠的 "http:/..."）尝试修复
+    - 相对路径拼到 base 上
+    - 修复不了且非相对路径的返回空串
+    """
+    u = (uri or "").strip()
+    if not u:
+        return ""
+    low = u.lower()
+    if low.startswith(("http://", "https://")):
+        return u
+    fixed = ""
+    if re.match(r"^https?:/*", low):
+        fixed = re.sub(r"^(https?):/*", r"\1://", u, flags=re.I)
+    elif re.match(r"^https?//", low):
+        fixed = re.sub(r"^(https?)//", r"\1://", u, flags=re.I)
+    if fixed and re.match(r"^https?://\S+", fixed, re.I):
+        return fixed
+    return f"{base.rstrip('/')}/{u.lstrip('/')}"
+
+
 def _mk(dt, source, title, content, url="", lang="zh", kind="news",
         ticker="", politician=""):
     if dt is None:
@@ -47,6 +72,11 @@ def _mk(dt, source, title, content, url="", lang="zh", kind="news",
     title = (title or "").strip()
     content = (content or "").strip()
     key = f"{source}|{title or content[:40]}|{dt.isoformat()}"
+    # URL 兜底校验：非 http(s) 绝对地址、或拼接出第二个 scheme 的垃圾链接一律置空
+    url = (url or "").strip()
+    if url and (not re.match(r"^https?://", url, re.I)
+                or re.search(r"https?:?//", url[9:])):
+        url = ""
     return {
         "id": hashlib.md5(key.encode("utf-8")).hexdigest()[:16],
         "ts": dt.isoformat(),
@@ -416,7 +446,7 @@ def fetch_wallstcn():
         title = it.get("title") or ""
         dt = _parse_dt(it.get("display_time"))
         uri = it.get("uri") or ""
-        url = f"https://wallstreetcn.com{uri}" if uri else ""
+        url = _normalize_url(uri, "https://wallstreetcn.com")
         obj = _mk(dt, "华尔街见闻", title, content, url)
         if obj:
             items.append(obj)

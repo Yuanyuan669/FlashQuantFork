@@ -168,7 +168,7 @@ _HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FlashQuant · 舆情 Dashboard</title>
+__REFRESH__<title>FlashQuant · 舆情 Dashboard</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--border:#21262d;--fg:#c9d1d9;--dim:#8b949e;
@@ -368,9 +368,11 @@ document.getElementById('alerttable').innerHTML = alerts.length
 """
 
 
-def render(data: dict) -> str:
+def render(data: dict, auto_refresh_sec: int = 0) -> str:
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-    return _HTML.replace("__DATA__", payload)
+    refresh = (f'<meta http-equiv="refresh" content="{int(auto_refresh_sec)}">'
+               if auto_refresh_sec > 0 else "")
+    return _HTML.replace("__REFRESH__", refresh).replace("__DATA__", payload)
 
 
 def build(news_dir: Path, out: Path, days: int = 7, top: int = 50) -> Path:
@@ -379,6 +381,13 @@ def build(news_dir: Path, out: Path, days: int = 7, top: int = 50) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render(data), encoding="utf-8")
     return out
+
+
+def render_fresh(days: int = 7, top: int = 50, auto_refresh_sec: int = 60) -> str:
+    """每次请求实时重建（serve 模式用）：收集 -> 渲染。"""
+    root = Path(__file__).resolve().parents[1]
+    data = collect(root / "news", days=days, top=top)
+    return render(data, auto_refresh_sec=auto_refresh_sec)
 
 
 def build_from_root(root: Path, days: int = 7, top: int = 50) -> Path:

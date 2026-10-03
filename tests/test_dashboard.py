@@ -2,7 +2,7 @@
 
 import json
 
-from news_aggregator.dashboard import build, collect, render
+from news_aggregator.dashboard import build, collect, render, render_fresh
 
 
 def _make_news(tmp_path, items):
@@ -66,3 +66,19 @@ def test_build_writes_single_file(tmp_path):
     assert out.exists()
     text = out.read_text(encoding="utf-8")
     assert "FlashQuant" in text and "__DATA__" not in text
+    assert "__REFRESH__" not in text  # 静态文件不带刷新占位残留
+
+
+def test_render_auto_refresh_meta(tmp_path):
+    _make_news(tmp_path, [])
+    html_off = render(collect(tmp_path), auto_refresh_sec=0)
+    html_on = render(collect(tmp_path), auto_refresh_sec=60)
+    assert 'http-equiv="refresh"' not in html_off
+    assert 'http-equiv="refresh" content="60"' in html_on
+
+
+def test_render_fresh_uses_project_root():
+    html = render_fresh(days=1, top=5, auto_refresh_sec=60)
+    assert html.startswith("<!DOCTYPE html>")
+    assert 'http-equiv="refresh" content="60"' in html
+    assert "__DATA__" not in html

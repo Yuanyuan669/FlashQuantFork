@@ -40,15 +40,20 @@ def test_mk_drops_non_http_url():
     assert empty["url"] == ""
 
 
-def test_mk_drops_double_scheme_concat():
-    """回归：wallstcn uri 拼接出第二个 scheme 的坏链要被置空。"""
+def test_mk_repairs_double_scheme_concat():
+    """回归：wallstcn uri 拼接出双 scheme 的坏链要修复而不是丢弃。"""
     dt = _parse_dt("2026-10-03T10:00:00+08:00")
-    garbage = _mk(dt, "s", "t", "c",
-                  "https://wallstreetcn.comhttps//wallstreetcn.com/livenews/3173865")
-    garbage2 = _mk(dt, "s", "t2", "c",
-                   "https://wallstreetcn.comhttps://wallstreetcn.com/livenews/1")
-    legit_query = _mk(dt, "s", "t3", "c",
-                      "https://example.com/redirect?u=https%3A%2F%2Ftarget.com")
-    assert garbage["url"] == ""
-    assert garbage2["url"] == ""
-    assert legit_query["url"].startswith("https://example.com/")
+    fixed = _mk(dt, "s", "t", "c",
+                "https://wallstreetcn.comhttps//wallstreetcn.com/livenews/3173865")
+    assert fixed["url"] == "https://wallstreetcn.com/livenews/3173865"
+
+    # 查询参数里的合法 scheme 不算拼接点，不应被误切
+    redirect = _mk(dt, "s", "t2", "c",
+                   "https://example.com/redirect?u=https://target.com/a")
+    assert redirect["url"] == "https://example.com/redirect?u=https://target.com/a"
+
+
+def test_normalize_double_scheme():
+    assert _normalize_url("https://wallstreetcn.comhttps://wallstreetcn.com/livenews/1",
+                          "https://wallstreetcn.com") \
+        == "https://wallstreetcn.com/livenews/1"

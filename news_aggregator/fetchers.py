@@ -44,14 +44,20 @@ def _parse_dt(v):
 def _normalize_url(uri: str, base: str) -> str:
     """把来源给出的 uri/链接归一化为可点击的绝对 URL。
 
-    - 完整 URL 原样返回
+    - 双 scheme 拼接（如 "https://a.comhttps//b.com/x"）→ 取最后一个 scheme 起点重建
     - scheme 残缺（如缺冒号的 "https//..."、缺斜杠的 "http:/..."）尝试修复
     - 相对路径拼到 base 上
-    - 修复不了且非相对路径的返回空串
+    - 其余无法归一化的返回空串
     """
     u = (uri or "").strip()
     if not u:
         return ""
+    # 拼接坏链：URL 内出现第二个 scheme 时，从最后一个 scheme 起点截取。
+    # 排除查询参数里的合法 scheme（前置字符是 = & ? 的不算拼接点）
+    ms = [m for m in re.finditer(r"https?:?//", u, re.I)
+          if m.start() == 0 or u[m.start() - 1] not in "=&?"]
+    if len(ms) >= 2:
+        u = u[ms[-1].start():]
     low = u.lower()
     if low.startswith(("http://", "https://")):
         return u
@@ -72,11 +78,12 @@ def _mk(dt, source, title, content, url="", lang="zh", kind="news",
     title = (title or "").strip()
     content = (content or "").strip()
     key = f"{source}|{title or content[:40]}|{dt.isoformat()}"
-    # URL 兜底校验：非 http(s) 绝对地址、或拼接出第二个 scheme 的垃圾链接一律置空
+    # URL 兜底校验：能归一化成合法 http(s) 地址的修复保留，否则置空（宁可不带链接）
     url = (url or "").strip()
-    if url and (not re.match(r"^https?://", url, re.I)
-                or re.search(r"https?:?//", url[9:])):
-        url = ""
+    if url:
+        url = _normalize_url(url, "")
+        if not url.startswith(("http://", "https://")):
+            url = ""
     return {
         "id": hashlib.md5(key.encode("utf-8")).hexdigest()[:16],
         "ts": dt.isoformat(),

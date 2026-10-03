@@ -108,14 +108,20 @@ def collect(news_dir: Path, days: int = 7, top: int = 50) -> dict:
     ranked = sorted(items, key=lambda it: (float(it.get("impact") or 0),
                                            it.get("ts") or ""), reverse=True)[:top]
 
-    _GARBAGE_URL = re.compile(r"^https?://.*https?:?//", re.I)
+    _SCHEME = re.compile(r"https?:?//", re.I)
 
     def _safe_url(u):
+        """历史数据坏链修复：双 scheme 拼接取最后一个 scheme 起点重建；修不了置空。"""
         u = (u or "").strip()
-        # 历史数据可能存在拼接坏链（如 "https://a.comhttps//b.com"，特征是 URL 内出现第二个 scheme）
-        if not u.startswith(("http://", "https://")) or _GARBAGE_URL.match(u):
+        if not u:
             return ""
-        return u
+        ms = [m for m in _SCHEME.finditer(u)
+              if m.start() == 0 or u[m.start() - 1] not in "=&?"]
+        if len(ms) >= 2:
+            u = u[ms[-1].start():]
+            if not u.lower().startswith(("http://", "https://")):
+                u = re.sub(r"^(https?)//", r"\1://", u, flags=re.I)
+        return u if u.startswith(("http://", "https://")) else ""
 
     top_news = [{
         "ts": (it.get("ts") or "")[:16].replace("T", " "),

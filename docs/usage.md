@@ -80,6 +80,7 @@ python scripts/backtest.py            # vnpy 回测 → results/backtest_report.
 python scripts/paper_trade.py         # 本地模拟盘（T-1 信号 T 日开盘成交）
 python scripts/paper_trade.py --reversal   # 反转因子模拟盘（42 只池）
 python scripts/predictive_power.py    # 事件预测力回看
+python scripts/audit_sources.py       # 数据源健康度审计（URL/时间/文本质量，可 --source 指定）
 python scripts/backfill_news.py       # 回填历史新闻（A股东财分页 + 美股 SEC 8-K/Finnhub）
 ```
 

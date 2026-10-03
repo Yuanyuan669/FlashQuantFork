@@ -140,8 +140,10 @@ def _fetch_rss(url, source, lang="en", params=None, strip_source=True):
 
 
 def _gnews_rss(query, source, lang="en", hl="en-US", gl="US", ceid="US:en"):
+    """Google News RSS 检索。when:30d 限定近 30 天，避免混入多年前的旧文
+    （实测 site:state.gov 批次 41% 是 2006-2017 年历史稿）。"""
     url = "https://news.google.com/rss/search"
-    params = {"q": query, "hl": hl, "gl": gl, "ceid": ceid}
+    params = {"q": f"{query} when:30d", "hl": hl, "gl": gl, "ceid": ceid}
     return _fetch_rss(url, source, lang=lang, params=params)
 
 
@@ -260,7 +262,11 @@ def fetch_fed():
 
 
 def fetch_sec_edgar():
-    """SEC EDGAR 最新 8-K 申报（Atom）。"""
+    """SEC EDGAR 最新 8-K 申报（Atom）。
+
+    回归修复：findtext 此前少传 namespaces，title/updated 恒为空串 ->
+    dt=None -> _mk 恒返回 None，本源自上线以来永远 0 条。
+    """
     import requests
     url = "https://www.sec.gov/cgi-bin/browse-edgar"
     params = {"action": "getcurrent", "type": "8-K", "dateb": "",
@@ -273,14 +279,16 @@ def fetch_sec_edgar():
         root = ET.fromstring(r.content)
         items = []
         for e in root.findall("a:entry", ns):
-            title = (e.findtext("a:title", default="") or "").strip()
-            updated = e.findtext("a:updated", default="") or ""
+            title = (e.findtext("a:title", default="", namespaces=ns) or "").strip()
+            updated = e.findtext("a:updated", default="", namespaces=ns) or ""
+            summary = (e.findtext("a:summary", default="", namespaces=ns) or "").strip()
+            summary = re.sub(r"<[^>]+>", " ", summary)  # summary 是 HTML 片段，剥标签
             link = ""
             ln = e.find("a:link", ns)
             if ln is not None:
                 link = ln.get("href") or ""
             dt = _parse_dt(updated)
-            obj = _mk(dt, "SEC EDGAR", title, "", link, lang="en")
+            obj = _mk(dt, "SEC EDGAR", title, summary, link, lang="en")
             if obj:
                 items.append(obj)
         return items
@@ -472,6 +480,8 @@ def fetch_jin10():
     for it in r.json().get("data", []):
         body = it.get("data", {})
         content = body.get("content") or ""
+        if not str(content).strip():
+            continue  # 源偶发无正文行（图卡/广告位），跳过避免空条目
         dt = _parse_dt(body.get("time") or it.get("time"))
         obj = _mk(dt, "金十快讯", "", content, "")
         if obj:

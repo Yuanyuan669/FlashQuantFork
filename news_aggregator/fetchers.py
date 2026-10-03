@@ -186,7 +186,8 @@ def fetch_quiver():
 
 
 def fetch_bargo():
-    base = os.environ.get("BARGO_BASE_URL", "https://www.bargo.ai/free-apis/congress/v1").strip()
+    # 用 or 而非 get 默认值：BARGO_BASE_URL 为空字符串时也要落回默认端点
+    base = (os.environ.get("BARGO_BASE_URL") or "https://www.bargo.ai/free-apis/congress/v1").strip()
     key = os.environ.get("BARGO_API_KEY", "").strip()
     import requests
     headers = dict(UA)
@@ -443,6 +444,28 @@ def fetch_jin10():
 
 def fetch_policy():
     import requests
+    # gov.cn 改版后 RSS 已下线，列表数据改由 ZUIXINZHENGCE.json 提供；
+    # RSS 保留为回退路径。
+    try:
+        r = requests.get("https://www.gov.cn/zhengce/zuixin/ZUIXINZHENGCE.json",
+                         timeout=12, headers={"User-Agent": "Mozilla/5.0"})
+        r.raise_for_status()
+        rows = r.json()
+        items = []
+        for row in rows or []:
+            dt = _parse_dt(row.get("DOCRELPUBTIME") or "")
+            title = str(row.get("TITLE") or "").strip()
+            if not title:
+                continue
+            sub = str(row.get("SUB_TITLE") or "").strip()
+            obj = _mk(dt, "政策公告", title, sub or title,
+                      str(row.get("URL") or ""))
+            if obj:
+                items.append(obj)
+        if items:
+            return items
+    except Exception:  # noqa: BLE001
+        pass
     url = "https://www.gov.cn/zhengce/zuixin/rss.xml"
     r = requests.get(url, timeout=12)
     r.raise_for_status()

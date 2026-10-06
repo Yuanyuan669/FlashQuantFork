@@ -23,6 +23,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # SSH 协议 fetch/push：自托管机 HTTPS+GnuTLS 不稳（同 TM DevLog 2026-07-11 的结论）
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Ensure venv (persistent, outside workspace)
         run: |

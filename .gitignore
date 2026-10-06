@@ -5,8 +5,8 @@ __pycache__/
 *.pyc
 .DS_Store
 paper/
-# 监测器运行时状态（不提交）
-news/seen.json
+# 监测器运行时状态
+# seen.json 需要跨 run 持久化（CI 模式下它是去重与告警基线），必须提交
 news/boards_cache.json
 .env
 .env.*

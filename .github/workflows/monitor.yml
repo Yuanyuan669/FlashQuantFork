@@ -1,0 +1,57 @@
+name: monitor
+
+on:
+  schedule:
+    # 北京时间 08:45（盘前）/ 11:35（午间收盘）/ 15:05（下午收盘）/ 21:30（美股开盘）
+    # GitHub 定时可能有数分钟延迟
+    - cron: "45 0 * * 1-5"
+    - cron: "35 3 * * 1-5"
+    - cron: "5 7 * * 1-5"
+    - cron: "30 13 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: [self-hosted, flashquant]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure venv (persistent, outside workspace)
+        run: |
+          VENV="$HOME/.venvs/flashquant"
+          if [ ! -x "$VENV/bin/python" ]; then
+            python3 -m venv "$VENV"
+            "$VENV/bin/pip" install -q -r requirements-server.txt
+          fi
+          echo "VENV=$VENV" >> "$GITHUB_ENV"
+
+      - name: Run monitor (one round)
+        run: |
+          "$VENV/bin/python" news_aggregator/monitor.py --once --no-stock-impact
+        env:
+          BARGO_API_KEY: ${{ secrets.BARGO_API_KEY }}
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+          WECOM_WEBHOOK_DAILY: ${{ secrets.WECOM_WEBHOOK_DAILY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+
+      - name: Commit news state
+        run: |
+          # seen.json / raw / alerts 必须持久化：跨 run 去重与告警状态依赖它们
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add news/
+          if git diff --cached --quiet; then
+            echo "no changes"
+          else
+            git commit -m "chore: monitor update $(date '+%F %H:%M')"
+            git push
+          fi

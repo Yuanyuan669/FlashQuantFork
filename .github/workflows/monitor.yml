@@ -27,12 +27,22 @@ jobs:
           # SSH 协议 fetch/push：自托管机 HTTPS+GnuTLS 不稳（同 TM DevLog 2026-07-11 的结论）
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Ensure venv (persistent, outside workspace)
+      - name: Ensure venv (uv-managed python 3.12, persistent)
+        env:
+          # pypi 走清华镜像直连（代理节点对 pypi.org 线路不稳）
+          PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+          UV_DEFAULT_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
+          NO_PROXY: pypi.tuna.tsinghua.edu.cn
+          no_proxy: pypi.tuna.tsinghua.edu.cn
         run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
           VENV="$HOME/.venvs/flashquant"
           if [ ! -x "$VENV/bin/python" ]; then
-            python3 -m venv "$VENV"
-            "$VENV/bin/pip" install -q -r requirements-server.txt
+            uv venv "$VENV" -p 3.12
+            uv pip install -p "$VENV/bin/python" -r requirements-server.txt
           fi
           echo "VENV=$VENV" >> "$GITHUB_ENV"
 

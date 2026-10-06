@@ -45,7 +45,9 @@ jobs:
             echo "no changes"
           else
             git commit -m "chore: update news aggregation $(date +%F)"
-            git push
           fi
+          # 本地与 CI 可能并发推送：先同步再推，避免 non-fast-forward
+          git pull --rebase origin master
+          git push
 
 

@@ -409,6 +409,14 @@ def main() -> int:
     if args.push:
         push_alert(cfg, "财经新闻舆情日报", md, channel="daily")
 
+    # 静态 Dashboard 重建（best-effort，失败不影响聚合主流程）
+    try:
+        from news_aggregator.dashboard import build_from_root
+        dash = build_from_root(ROOT)
+        print(f"[agg] dashboard -> {dash}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[agg] dashboard 重建失败: {type(e).__name__}: {e}")
+
     return 0
 
 

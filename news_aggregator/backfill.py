@@ -213,11 +213,11 @@ def fetch_em_stock_news(keyword: str, symbol: str, start_date: str, max_pages: i
             got += 1
         if stop or got < page_size:
             break
-        time.sleep(0.5)  # 温和限速
+        time.sleep(1.2)  # 限速（东财对高频敏感，宁慢勿封）
     return items
 
 
-def fetch_em_announcements(code: str, symbol: str, start_date: str, page_size: int = 50) -> list:
+def fetch_em_announcements(code: str, symbol: str, start_date: str, page_size: int = 50, max_pages: int = 60) -> list:
     """分页回填东财公告（np-anotice-stock），全历史，通常可回填十数年。
 
     公告（业绩预告/增减持/重大合同/分红/处罚等）比新闻更结构化、信号更明确，
@@ -272,8 +272,11 @@ def fetch_em_announcements(code: str, symbol: str, start_date: str, page_size: i
                 got += 1
         if stop or got < page_size:
             break
+        if page >= max_pages:
+            print(f'  [backfill] 东财公告达到翻页上限 {max_pages}，停止')
+            break
         page += 1
-        time.sleep(0.4)  # 温和限速
+        time.sleep(1.0)  # 限速（东财对高频敏感，宁慢勿封）
     return items
 
 

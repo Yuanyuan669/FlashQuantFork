@@ -246,6 +246,37 @@ def build_ticker_alert(item: dict) -> tuple[str, str]:
     return title, "\n".join(lines)
 
 
+def build_digest(entries: list, max_bytes: int = 3800) -> list:
+    """把 [(title, content), ...] 告警压缩成摘要块列表。
+
+    每条取标题 + 情绪分/影响分行 + 原文行；按 UTF-8 字节数切块
+    （企微单条消息上限 4096 字节，留余量），块数不限。
+    """
+    lines = []
+    for title, content in entries:
+        part = (title or "").strip()
+        body = (content or "").splitlines()
+        score = next((l.strip() for l in body if "情绪分" in l), "")
+        origin = next((l.strip() for l in body if "原文" in l), "")
+        if score:
+            part += "\n" + score
+        if origin:
+            part += "\n" + origin
+        if part:
+            lines.append(part)
+    chunks, cur = [], ""
+    for line in lines:
+        cand = f"{cur}\n\n{line}" if cur else line
+        if cur and len(cand.encode("utf-8")) > max_bytes:
+            chunks.append(cur)
+            cur = line
+        else:
+            cur = cand
+    if cur:
+        chunks.append(cur)
+    return chunks
+
+
 def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
              dry_run: bool, boards: dict, theme_boards: dict, top_n: int,
              no_stock_impact: bool = False) -> int:
@@ -286,6 +317,9 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     new_items = compute_impact(new_items, themes, weights, window_minutes, burst_cap)
 
     alerts = 0
+    # 聚合推送：一轮内所有告警攒起来，run 末尾按摘要块合并推送（避免刷屏+企微限流）
+    batch = bool((cfg.get("monitor") or {}).get("push_batch", True))
+    pending: list = []
     for it in new_items:
         seen.append(it["id"])
         seen_set.add(it["id"])
@@ -300,7 +334,10 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
                 print(content)
                 print("=" * 60 + "\n")
                 if not dry_run:
-                    push_alert(cfg, title, content)
+                    if batch:
+                        pending.append((title, content))
+                    else:
+                        push_alert(cfg, title, content)
             continue
         text = f"{it.get('title', '')} {it.get('content', '')}"
         score = it.get("sentiment", score_text(text))
@@ -346,7 +383,6 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
         print(content)
         print("=" * 60 + "\n")
         if not dry_run:
-            push_alert(cfg, title, content)
             # 告警闭环：记录实际发出的告警，供 scripts/alert_review.py 回看次日波动
             log_alert({
                 "news_id": it.get("id"),
@@ -359,13 +395,24 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
                 "source": it.get("source") or "",
                 "symbols": it.get("symbols") or [],
             })
+            if batch:
+                pending.append((title, content))
+            else:
+                push_alert(cfg, title, content)
+
+    if batch and pending and not dry_run:
+        chunks = build_digest(pending)
+        for k, chunk in enumerate(chunks, 1):
+            digest_title = f"[事件告警汇总] 本轮 {len(pending)} 条（{k}/{len(chunks)}）"
+            push_alert(cfg, digest_title, chunk)
 
     if new_items:
         append_raw(new_items)
         update_history(new_items)
         save_seen(seen)
         print(f"[monitor] 本轮新增 {len(new_items)} 条，命中告警 {alerts} 条"
-              f"{'（dry-run 未推送）' if dry_run else ''}")
+              f"{'（dry-run 未推送）' if dry_run else ''}"
+              f"{'，聚合为 ' + str(len(build_digest(pending))) + ' 条摘要推送' if batch and pending and not dry_run else ''}")
     else:
         print("[monitor] 本轮无新增")
     return len(new_items)

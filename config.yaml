@@ -79,6 +79,7 @@ news:
   wecom_webhook: ""
 monitor:
   poll_interval: 15              # 轮询秒数（10-60）
+  push_batch: true               # 一轮内告警聚合为一条摘要推送（避免刷屏+企微 20 条/分钟限流）
   enabled_sources: []            # 留空则用 news.enabled_sources
   themes_path: "news_aggregator/themes.yaml"
   top_constituents: 5            # 告警里展示每个板块前几只成分股

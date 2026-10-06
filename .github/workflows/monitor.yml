@@ -33,7 +33,6 @@ jobs:
           PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
           UV_DEFAULT_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
           NO_PROXY: pypi.tuna.tsinghua.edu.cn
-          no_proxy: pypi.tuna.tsinghua.edu.cn
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           if ! command -v uv >/dev/null 2>&1; then

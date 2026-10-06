@@ -34,3 +34,10 @@
 {"news_id": "a1d3108a48d1707a", "ts": "2026-10-07T00:06:28", "date": "2026-10-06", "theme": "黄金/避险", "event_type": "处罚诉讼", "impact": 0.47, "score": -0.5, "source": "财联社", "symbols": []}
 {"news_id": "570be6e9da68965c", "ts": "2026-10-07T00:06:28", "date": "2026-10-06", "theme": "原油/商品", "event_type": "", "impact": 0.4688, "score": -0.625, "source": "同花顺7x24", "symbols": []}
 {"news_id": "0de1810fd4399b8a", "ts": "2026-10-07T00:06:28", "date": "2026-10-06", "theme": "黄金/避险", "event_type": "处罚诉讼", "impact": 0.45, "score": -0.5, "source": "富途牛牛", "symbols": []}
+{"news_id": "e4d6de9fdeeee6f8", "ts": "2026-10-07T00:10:56", "date": "2026-09-24", "theme": "央行/货币政策", "event_type": "", "impact": 0.5227, "score": -0.6667, "source": "欧洲央行ECB", "symbols": []}
+{"news_id": "193339635defc9b1", "ts": "2026-10-07T00:10:56", "date": "2026-09-29", "theme": "白宫/贸易政策、国会/听证会", "event_type": "", "impact": 0.5067, "score": -0.6667, "source": "国会听证会", "symbols": []}
+{"news_id": "a52b605e322db2e5", "ts": "2026-10-07T00:10:56", "date": "2026-10-01", "theme": "美国宏观数据", "event_type": "", "impact": 0.5067, "score": -0.6667, "source": "ISM PMI", "symbols": []}
+{"news_id": "8e88611c9cc2ea40", "ts": "2026-10-07T00:10:56", "date": "2026-10-06", "theme": "美国宏观数据", "event_type": "", "impact": 0.5067, "score": 0.6667, "source": "IMF/世界银行", "symbols": []}
+{"news_id": "cec31381a0083e1d", "ts": "2026-10-07T00:10:56", "date": "2026-09-11", "theme": "原油/商品", "event_type": "", "impact": 0.5067, "score": 0.6667, "source": "OPEC/IEA", "symbols": []}
+{"news_id": "adeccca6c0844c65", "ts": "2026-10-07T00:10:56", "date": "2026-10-06", "theme": "央行/货币政策", "event_type": "", "impact": 0.455, "score": 0.5, "source": "彭博", "symbols": []}
+{"news_id": "8344452eda561eb8", "ts": "2026-10-07T00:10:56", "date": "2026-10-06", "theme": "白宫/贸易政策", "event_type": "", "impact": 0.455, "score": -0.5, "source": "彭博", "symbols": []}

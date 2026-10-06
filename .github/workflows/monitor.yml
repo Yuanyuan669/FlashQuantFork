@@ -19,9 +19,7 @@ concurrency:
 
 jobs:
   monitor:
-    # 托管 runner：自托管机器到 github.com 的 git 直连被干扰（GnuTLS handshake 失败），
-    # checkout 不可靠；抓取国内源在托管 runner 上已由 news-aggregator 长期验证可用。
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, flashquant]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

@@ -39,10 +39,12 @@ jobs:
             curl -LsSf https://astral.sh/uv/install.sh | sh
           fi
           VENV="$HOME/.venvs/flashquant"
-          if [ ! -x "$VENV/bin/python" ]; then
+          # venv 存在但版本 <3.12 时重建（历史残留的 py3.10 venv 会导致依赖装不进去）
+          if [ ! -x "$VENV/bin/python" ] || ! "$VENV/bin/python" -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)"; then
+            rm -rf "$VENV"
             uv venv "$VENV" -p 3.12
-            uv pip install -p "$VENV/bin/python" -r requirements-server.txt
           fi
+          uv pip install -p "$VENV/bin/python" -r requirements-server.txt
           echo "VENV=$VENV" >> "$GITHUB_ENV"
 
       - name: Run monitor (one round)

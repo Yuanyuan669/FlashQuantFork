@@ -29,13 +29,12 @@ jobs:
 
       - name: Ensure venv (uv-managed python 3.12, persistent)
         env:
-          # pypi 走清华镜像直连（代理节点对 pypi.org 线路不稳）
+          # pypi 走清华镜像直连（代理节点对 pypi.org 线路不稳）；HF 模型下载走国内镜像
+          # 注意：GitHub 解析 env 键不区分大小写，NO_PROXY/no_proxy 重复会导致 workflow 解析失败
           PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
           UV_DEFAULT_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
-          NO_PROXY: pypi.tuna.tsinghua.edu.cn
-          # HF 模型下载走国内镜像直连（代理节点会损坏 HF 文件）
+          NO_PROXY: pypi.tuna.tsinghua.edu.cn,hf-mirror.com,127.0.0.1,localhost
           HF_ENDPOINT: https://hf-mirror.com
-          no_proxy: hf-mirror.com,127.0.0.1,localhost
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           if ! command -v uv >/dev/null 2>&1; then

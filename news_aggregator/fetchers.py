@@ -490,6 +490,12 @@ def fetch_jin10():
     return items
 
 
+def fetch_hottrend():
+    """社媒热搜聚合（6 平台，适配器移植自 JCP）。"""
+    from news_aggregator.hottrend import fetch_all
+    return fetch_all()
+
+
 def fetch_policy():
     import requests
     # gov.cn 改版后 RSS 已下线，列表数据改由 ZUIXINZHENGCE.json 提供；
@@ -580,6 +586,7 @@ SOURCES = [
     ("华尔街见闻", fetch_wallstcn),
     ("金十快讯", fetch_jin10),
     ("政策公告", fetch_policy),
+    ("社媒热搜", fetch_hottrend),
 ]
 
 

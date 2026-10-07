@@ -7,3 +7,6 @@ pandas==3.0.5
 numpy==2.5.2
 pyyaml==6.0.3
 requests==2.34.2
+# FinBERT 情绪后端（aarch64 CPU；首装较慢，venv 持久化后一次性成本）
+transformers>=4.44.0
+torch>=2.2.0

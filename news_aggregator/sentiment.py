@@ -194,7 +194,12 @@ class LexiconBackend(SentimentBackend):
 
 
 class FinBertBackend(SentimentBackend):
-    """FinBERT 系列后端。惰性加载，任何异常回退词典。"""
+    """FinBERT 系列后端。惰性加载，任何异常回退词典。
+
+    混合路由：FinBERT 仅擅长英文金融文本——含 CJK 的文本自动走词典，
+    避免 中文->FinBERT 的垃圾输出。
+    """
+
     name = "finbert"
 
     def __init__(self, model_name: str = "yiyanghkust/finbert-tone",
@@ -232,6 +237,8 @@ class FinBertBackend(SentimentBackend):
         return pos - neg
 
     def score(self, text: str) -> float:
+        if not text or _is_cjk(str(text)):
+            return _lexicon_score(text)
         if not self._ensure():
             return _lexicon_score(text)
         try:
@@ -242,13 +249,26 @@ class FinBertBackend(SentimentBackend):
     def score_batch(self, texts: list) -> list:
         if not texts:
             return []
-        if not self._ensure():
-            return [_lexicon_score(t) for t in texts]
-        try:
-            outs = self._pipe([str(t) for t in texts], batch_size=self.batch_size)
-            return [self._map(o) for o in outs]
-        except Exception:  # noqa: BLE001
-            return [_lexicon_score(t) for t in texts]
+        # 混合路由：中文走词典，英文走 FinBERT 批量
+        out, en_idx, en_texts = [0.0] * len(texts), [], []
+        for i, t in enumerate(texts):
+            if t and _is_cjk(str(t)):
+                out[i] = _lexicon_score(t)
+            else:
+                en_idx.append(i)
+                en_texts.append(str(t))
+        if en_texts and self._ensure():
+            try:
+                preds = self._pipe(en_texts, batch_size=self.batch_size)
+                for i, pred in zip(en_idx, preds):
+                    out[i] = self._map(pred)
+            except Exception:  # noqa: BLE001
+                for i in en_idx:
+                    out[i] = _lexicon_score(texts[i])
+        elif en_texts:
+            for i in en_idx:
+                out[i] = _lexicon_score(texts[i])
+        return out
 
 
 class LLMBackend(SentimentBackend):

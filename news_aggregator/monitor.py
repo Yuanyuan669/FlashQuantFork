@@ -327,6 +327,7 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     window_minutes = int(imp_cfg.get("window_minutes", 60))
     burst_cap = int(imp_cfg.get("burst_cap", 4))
     impact_min = float((cfg.get("monitor") or {}).get("impact_min", 0.0))
+    score_min = float((cfg.get("monitor") or {}).get("score_min", 0.0))
     si_cfg = (cfg.get("monitor") or {}).get("stock_impact") or {}
     si_enabled = bool(si_cfg.get("enabled", False)) and not no_stock_impact
     si_max = int(si_cfg.get("max_stocks", 6))
@@ -377,6 +378,9 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
             continue
         imp = it.get("impact", 0.0)
         if impact_min > 0 and imp < impact_min:
+            continue
+        # 情绪地板：无方向性（词典/模型均未命中）的告警对用户是噪声
+        if score_min > 0 and abs(float(score)) < score_min:
             continue
         alerts += 1
         # 合并告警：一条新闻只推一次，多主题合并展示（旧行为每主题各推一条，刷屏严重）

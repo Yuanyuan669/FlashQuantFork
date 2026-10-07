@@ -20,7 +20,7 @@ concurrency:
 jobs:
   monitor:
     runs-on: [self-hosted, flashquant]
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,6 +45,9 @@ jobs:
             uv venv "$VENV" -p 3.12
           fi
           uv pip install -p "$VENV/bin/python" -r requirements-server.txt
+          # FinBERT 模型预下载（~440MB，走 runner 代理；失败不阻塞，运行时会重试+降级词典）
+          "$VENV/bin/python" -c "from transformers import pipeline; pipeline('text-classification', model='yiyanghkust/finbert-tone')" \
+            || echo "[warn] FinBERT 预下载失败"
           echo "VENV=$VENV" >> "$GITHUB_ENV"
 
       - name: Run monitor (one round)

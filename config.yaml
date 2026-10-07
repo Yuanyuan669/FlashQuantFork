@@ -41,7 +41,8 @@ symbols:
 sentiment:
   threshold_long: 0.3        # 情绪分 >= 该值则开多
   threshold_flat: -0.3       # 情绪分 <= 该值则平多（只做多头，默认空仓）
-  backend: lexicon           # 情绪打分后端：lexicon | finbert | llm
+  backend: finbert            # 情绪打分后端：lexicon | finbert | llm
+                              # finbert：英文走模型（混合路由，中文自动回退词典），失败自动降级 lexicon
   finbert_model: "yiyanghkust/finbert-tone"   # finbert 后端用（如 baptle/FinBERT_market_based）
   finbert_device: ""         # 可选：cpu / cuda / 0（空=自动）
   llm_api_base: ""           # llm 后端用（OpenAI 兼容，留空读 OPENAI_BASE_URL）
@@ -91,6 +92,7 @@ monitor:
   board_cache_refresh_hours: 24  # 板块成分股缓存刷新周期
   impact_min: 0.45              # 影响分告警阈值（只推高影响，避免刷屏/触发Server酱限流）
                                 # 校准后上调：0.3 时命中面过宽（实测一轮 381 条中 367 条触发）
+  score_min: 0.15               # 情绪地板：|score| 低于该值不告警（词典/模型都无方向性的消息是噪声）
   # 个股影响映射（LLM 判断新闻利好/利空哪些股票，告警里附加；有延迟/成本，默认关）
   stock_impact:
     enabled: true               # true=命中主题时调 LLM 做个股映射

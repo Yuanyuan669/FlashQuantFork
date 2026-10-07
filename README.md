@@ -20,9 +20,12 @@
 ## 本 Fork 的改动
 
 - **静态舆情 Dashboard**：`run.py` 每日聚合后自动生成零依赖单文件页面（`dashboard/index.html`），KPI / 情绪趋势 / 高影响新闻过滤 / 告警历史，可托管 GitHub Pages
+- **社媒热搜源**：新增 6 平台热搜聚合（微博/百度/知乎/抖音/头条/B站），适配器**移植自 JCP 项目**（本地 Go 项目 `internal/services/hottrend` 的 Python 重实现），采用话题稳定 id 设计
 - **政策公告源修复**：gov.cn RSS 已下线，改用官网 JSON 数据端点（旧 RSS 保留为回退）
+- **采集扩围**：个股新闻扩至 102 只分层标的池（大盘/中盘/小盘/微盘，美股接入 Finnhub）
+- **FinBERT 情绪后端**：英文混合路由（ProsusAI/finbert + 词典回退），告警增加情绪地板过滤
 - **跨平台部署整理**：Linux（systemd / docker / cron）为主目标，Windows 仅开发预览；新增 dashboard 常驻刷新（`--watch`）
-- **测试补充**：dashboard 构建器单元测试（数据容错 / XSS 转义 / 单文件输出）
+- **测试补充**：dashboard 构建器 / URL 归一化 / fetcher 录制回放 / 单元测试 49+
 
 ## 快速开始
 

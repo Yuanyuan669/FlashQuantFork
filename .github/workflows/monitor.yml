@@ -49,7 +49,7 @@ jobs:
           fi
           uv pip install -p "$VENV/bin/python" -r requirements-server.txt
           # FinBERT 模型预下载（~440MB，走 runner 代理；失败不阻塞，运行时会重试+降级词典）
-          "$VENV/bin/python" -c "from transformers import pipeline; pipeline('text-classification', model='yiyanghkust/finbert-tone')" \
+          "$VENV/bin/python" -c "from transformers import pipeline; pipeline('text-classification', model='ProsusAI/finbert')" \
             || echo "[warn] FinBERT 预下载失败"
           echo "VENV=$VENV" >> "$GITHUB_ENV"
 

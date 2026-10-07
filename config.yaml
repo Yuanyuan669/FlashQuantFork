@@ -43,7 +43,7 @@ sentiment:
   threshold_flat: -0.3       # 情绪分 <= 该值则平多（只做多头，默认空仓）
   backend: finbert            # 情绪打分后端：lexicon | finbert | llm
                               # finbert：英文走模型（混合路由，中文自动回退词典），失败自动降级 lexicon
-  finbert_model: "yiyanghkust/finbert-tone"   # finbert 后端用（如 baptle/FinBERT_market_based）
+  finbert_model: "ProsusAI/finbert"   # yiyanghkust/finbert-tone 缺 model_type，与 transformers 5.x 不兼容
   finbert_device: ""         # 可选：cpu / cuda / 0（空=自动）
   llm_api_base: ""           # llm 后端用（OpenAI 兼容，留空读 OPENAI_BASE_URL）
   llm_api_key: ""            # 留空读 OPENAI_API_KEY

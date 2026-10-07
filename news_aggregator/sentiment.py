@@ -202,7 +202,7 @@ class FinBertBackend(SentimentBackend):
 
     name = "finbert"
 
-    def __init__(self, model_name: str = "yiyanghkust/finbert-tone",
+    def __init__(self, model_name: str = "ProsusAI/finbert",
                  device=None, batch_size: int = 16):
         self.model_name = model_name
         self.device = device
@@ -346,7 +346,7 @@ def configure_backend(cfg: dict) -> SentimentBackend:
 
     if name == "finbert":
         _active_backend = FinBertBackend(
-            model_name=s.get("finbert_model") or "yiyanghkust/finbert-tone",
+            model_name=s.get("finbert_model") or "ProsusAI/finbert",
             device=s.get("finbert_device") or None,
         )
         print(f"[sentiment] 后端=finbert（{_active_backend.model_name}，首次评分时加载，失败回退词典）")

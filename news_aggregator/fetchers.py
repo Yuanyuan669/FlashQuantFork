@@ -632,8 +632,8 @@ def fetch_us_symbol_news(symbols_cfg, token: str, days: int = 2):
         if not ticker:
             continue
         try:
-            got = fetch_finnhub_news(ticker, start.strftime("%Y%m%d"),
-                                     end.strftime("%Y%m%d"), token) or []
+            got = fetch_finnhub_news(ticker, start.strftime("%Y-%m-%d"),
+                                     end.strftime("%Y-%m-%d"), token) or []
         except Exception:  # noqa: BLE001
             got = []
         for it in got:

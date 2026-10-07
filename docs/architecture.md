@@ -81,7 +81,7 @@ impact = w_authority × 来源权威度      # 央行/政府 1.0 → 通讯社 0
 | 类别 | 来源 |
 |---|---|
 | 中文快讯 | 财联社电报 · 东财 7×24 · 新浪 7×24 · 同花顺 7×24 · 富途牛牛 · 华尔街见闻 · 金十快讯 · 政策公告（gov.cn JSON） |
-| 社媒热搜 | 微博 · 百度 · 知乎 · 抖音 · 头条 · B站（6 平台热搜聚合，适配器移植自 JCP 项目 `internal/services/hottrend` 的 Go 实现，Python 重写并采用话题稳定 id） |
+| 社媒热搜 | 微博 · 百度 · 知乎 · 抖音 · 头条 · B站（6 平台热搜聚合，适配器移植自 [JCP](https://github.com/run-bigpig/jcp) 项目 `internal/services/hottrend` 的 Go 实现，Python 重写并采用话题稳定 id，MIT 声明见根目录 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)） |
 | 英文一手 | AP · Reuters · AFP · 彭博（均经 Google News RSS） |
 | 央行/宏观 | 美联储 · ECB · BOJ · BOE · 中国人民银行 · FRED · 非农/CPI · GDP/PCE · ISM PMI · EIA · OPEC/IEA · CFTC · VIX · AAII |
 | 另类数据 | Quiver（国会/内部人交易）· 北向资金 · Bargo 国会交易 · SEC EDGAR |

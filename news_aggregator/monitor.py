@@ -17,6 +17,7 @@
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 import time
@@ -27,7 +28,7 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from news_aggregator.fetchers import SOURCES, filter_recent, apply_primary_keys, load_env_file  # noqa: E402
+from news_aggregator.fetchers import SOURCES, filter_recent, apply_primary_keys, load_env_file, load_news_universe, fetch_symbol_news, fetch_us_symbol_news  # noqa: E402
 from news_aggregator.sentiment import score_text, configure_backend  # noqa: E402
 from news_aggregator.push import push_alert  # noqa: E402
 from news_aggregator.run import compute_daily, dedupe, load_history, save_history, upsert_history, append_items_by_date  # noqa: E402
@@ -290,6 +291,21 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
                or (cfg.get("news") or {}).get("enabled_sources") or None)
 
     all_items = fetch_new_items(enabled)
+    # 扩围逐股新闻（universe_tiers 清单，A股东财 + 美股 Finnhub）
+    per_sym = (cfg.get("news") or {}).get("per_symbol") or {}
+    if per_sym.get("enabled", True):
+        try:
+            uni = load_news_universe(cfg)
+            sleep = float(per_sym.get("sleep", 0.25))
+            sym_items = fetch_symbol_news(uni, sleep=sleep)
+            all_items.extend(sym_items)
+            fh_token = os.environ.get("FINNHUB_API_KEY", "").strip()
+            us_items = fetch_us_symbol_news(uni, fh_token, days=2)
+            all_items.extend(us_items)
+            print(f"[monitor] 逐股新闻: A股 {len(sym_items)} 条 / 美股 {len(us_items)} 条"
+                  f"（清单 {len(uni)} 只）")
+        except Exception as e:  # noqa: BLE001
+            print(f"[monitor] 逐股新闻失败: {type(e).__name__}")
     # 去重
     uniq = {}
     for it in all_items:

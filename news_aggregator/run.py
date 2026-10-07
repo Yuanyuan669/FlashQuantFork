@@ -22,7 +22,7 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from news_aggregator.fetchers import SOURCES, fetch_symbol_news, filter_recent, apply_primary_keys, load_env_file  # noqa: E402
+from news_aggregator.fetchers import SOURCES, fetch_symbol_news, load_news_universe, filter_recent, apply_primary_keys, load_env_file  # noqa: E402
 from news_aggregator.sentiment import score_text, configure_backend  # noqa: E402
 from news_aggregator.tagger import tag  # noqa: E402
 from news_aggregator.push import push_alert  # noqa: E402
@@ -356,7 +356,8 @@ def main() -> int:
 
     # 个股新闻（为每只 A股抓取并预打标签）
     try:
-        sym_items = fetch_symbol_news(cfg["symbols"])
+        sym_items = fetch_symbol_news(load_news_universe(cfg),
+                                      sleep=float((cfg.get("news") or {}).get("per_symbol_sleep", 0.25)))
         stats["个股新闻"] = len(sym_items)
         items.extend(sym_items)
         print(f"[fetch] 个股新闻: {len(sym_items)} 条")

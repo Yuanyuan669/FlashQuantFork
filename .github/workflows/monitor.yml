@@ -52,6 +52,7 @@ jobs:
           "$VENV/bin/python" news_aggregator/monitor.py --once --no-stock-impact
         env:
           BARGO_API_KEY: ${{ secrets.BARGO_API_KEY }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
           WECOM_WEBHOOK_DAILY: ${{ secrets.WECOM_WEBHOOK_DAILY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}

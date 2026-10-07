@@ -8,6 +8,7 @@
 import hashlib
 import html as _html
 import os
+import pathlib
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
@@ -582,8 +583,11 @@ SOURCES = [
 ]
 
 
-# ---- 个股新闻（为每只 A股抓取并预打标签） ----
-def fetch_symbol_news(symbols_cfg):
+# ---- 个股新闻（为每只标的抓取并预打标签） ----
+def fetch_symbol_news(symbols_cfg, sleep: float = 0.0):
+    """逐股新闻（A股走东财 stock_news_em）。sleep>0 时逐股限速（扩围后必开）。"""
+    import time as _time
+
     import akshare as ak
     items = []
     for s in symbols_cfg:
@@ -605,7 +609,62 @@ def fetch_symbol_news(symbols_cfg):
             if it:
                 it["symbols"] = [s["symbol"]]
                 items.append(it)
+        if sleep:
+            _time.sleep(sleep)
     return items
+
+
+def fetch_us_symbol_news(symbols_cfg, token: str, days: int = 2):
+    """美股逐股新闻（Finnhub company-news，免费 key）。近 days 天，无 token 返回空。"""
+    from datetime import timedelta
+
+    if not token:
+        return []
+    from news_aggregator.backfill import fetch_finnhub_news
+
+    end = datetime.now(TZ)
+    start = end - timedelta(days=days)
+    items = []
+    for s in symbols_cfg:
+        if s.get("market") != "us":
+            continue
+        ticker = str(s.get("symbol") or "")
+        if not ticker:
+            continue
+        try:
+            got = fetch_finnhub_news(ticker, start.strftime("%Y%m%d"),
+                                     end.strftime("%Y%m%d"), token) or []
+        except Exception:  # noqa: BLE001
+            got = []
+        for it in got:
+            it["symbols"] = [ticker]
+            items.append(it)
+    return items
+
+
+def load_news_universe(cfg) -> list:
+    """合并 config symbols 与 per_symbol_universe 清单（按 symbol 去重，后者补充）。"""
+    import yaml as _yaml
+
+    merged = {}
+    for s in list(cfg.get("symbols") or []):
+        key = s.get("symbol") or s.get("code")
+        if key:
+            merged[key] = s
+    path = str((cfg.get("news") or {}).get("per_symbol_universe") or "").strip()
+    if path:
+        p = pathlib.Path(path)
+        if not p.is_absolute():
+            p = pathlib.Path(__file__).resolve().parents[1] / p
+        try:
+            data = _yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+            for s in data.get("symbols") or []:
+                key = s.get("symbol") or s.get("code")
+                if key and key not in merged:
+                    merged[key] = s
+        except Exception:  # noqa: BLE001
+            pass
+    return list(merged.values())
 
 def filter_recent(items, days: int = 30):
     """只保留近 N 天条目，过滤 Google News RSS 返回的历史旧闻。"""

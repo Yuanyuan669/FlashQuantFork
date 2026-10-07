@@ -33,6 +33,9 @@ jobs:
           PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
           UV_DEFAULT_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
           NO_PROXY: pypi.tuna.tsinghua.edu.cn
+          # HF 模型下载走国内镜像直连（代理节点会损坏 HF 文件）
+          HF_ENDPOINT: https://hf-mirror.com
+          no_proxy: hf-mirror.com,127.0.0.1,localhost
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           if ! command -v uv >/dev/null 2>&1; then
@@ -55,6 +58,8 @@ jobs:
           "$VENV/bin/python" news_aggregator/monitor.py --once --no-stock-impact
         env:
           BARGO_API_KEY: ${{ secrets.BARGO_API_KEY }}
+          HF_ENDPOINT: https://hf-mirror.com
+          no_proxy: hf-mirror.com,127.0.0.1,localhost
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
           WECOM_WEBHOOK_DAILY: ${{ secrets.WECOM_WEBHOOK_DAILY }}

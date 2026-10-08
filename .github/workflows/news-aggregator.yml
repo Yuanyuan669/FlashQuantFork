@@ -40,14 +40,19 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add news/
+          # dashboard/index.html 由 run.py 末尾重建（2026-10-06 起），它在 news/ 之外：
+          # 只 add news/ 会让它留成未暂存改动 -> git pull --rebase 直接拒绝
+          # （cannot pull with rebase: You have unstaged changes），聚合结果推不上去
+          # （daily_sentiment.json 曾因此停更 2026-10-03 ~ 10-08）
+          git add news/ dashboard/index.html
           if git diff --cached --quiet; then
             echo "no changes"
           else
             git commit -m "chore: update news aggregation $(date +%F)"
           fi
           # 本地与 CI 可能并发推送：先同步再推，避免 non-fast-forward
-          git pull --rebase origin master
+          # --autostash：兜底任何其它生成物弄脏工作区，避免 rebase 被拒
+          git pull --rebase --autostash origin master
           git push
 
 

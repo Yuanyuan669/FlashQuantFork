@@ -1,13 +1,18 @@
 name: monitor
 
 on:
-  schedule:
-    # 北京时间 08:45（盘前）/ 11:35（午间收盘）/ 15:05（下午收盘）/ 21:30（美股开盘）
-    # GitHub 定时可能有数分钟延迟
-    - cron: "45 0 * * 1-5"
-    - cron: "35 3 * * 1-5"
-    - cron: "5 7 * * 1-5"
-    - cron: "30 13 * * 1-5"
+  # 2026-10-09：schedule 已迁移至 cron-job.org 外部触发（workflow_dispatch），勿在此恢复。
+  # 原因（实测）：GitHub 内置 schedule 对本仓投递严重延迟且不规律 —— 2026-10-07~09 的
+  # 7 次 schedule run 中，created_at 与 run_started_at 差值全为 0（自建机秒接，延迟不在
+  # runner 侧），但投递时刻比 cron 晚 55 分钟 ~ 5.9 小时，且缺槽与重复并存。
+  # monitor 的四个时点（盘前 08:45 / 午间 11:35 / 收盘 15:05 / 美股开盘 21:30）
+  # 晚数小时即失去意义。GitHub 对 fork 仓库的 scheduled workflow 默认禁用、启用后投递
+  # 仍不可靠，故统一改外部触发（与 TradingMaster 同一结论）。
+  # 原 cron（保留备查，勿恢复；UTC，* * 1-5）= 北京 08:45 / 11:35 / 15:05 / 21:30：
+  #   - cron: "45 0 * * 1-5"
+  #   - cron: "35 3 * * 1-5"
+  #   - cron: "5 7 * * 1-5"
+  #   - cron: "30 13 * * 1-5"
   workflow_dispatch:
 
 permissions:

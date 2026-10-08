@@ -1,9 +1,11 @@
 name: news-aggregator
 
 on:
-  schedule:
-    # 工作日 18:30 北京时间 = 10:30 UTC
-    - cron: "30 10 * * 1-5"
+  # 2026-10-09：schedule 已迁移至 cron-job.org 外部触发（workflow_dispatch），勿在此恢复。
+  # 原因同 monitor.yml：GitHub 内置 schedule 对本仓投递晚 3.5~7 小时（实测 10-06 的
+  # 18:30 cron 实际 22:00 才投递，10-07 的到次日 01:28 才投递）。
+  # 原 cron（保留备查，勿恢复；UTC）= 北京 18:30：
+  #   - cron: "30 10 * * 1-5"
   workflow_dispatch:
 
 permissions:

@@ -1632,3 +1632,39 @@
 {"news_id": "37edf155e8fefc6e", "ts": "2026-10-09T20:15:06", "date": "2026-09-30", "theme": "白宫/贸易政策、国会/听证会", "event_type": "", "impact": 0.4538, "score": 0.375, "source": "白宫", "symbols": []}
 {"news_id": "2b1c2485a5fe7fa8", "ts": "2026-10-09T20:15:06", "date": "2026-10-09", "theme": "财报/公告", "event_type": "财报预增", "impact": 0.4529, "score": 0.5714, "source": "东财全球资讯", "symbols": []}
 {"news_id": "b78d1e769faae148", "ts": "2026-10-09T20:15:06", "date": "2026-10-09", "theme": "黄金/避险、中国外交/地缘", "event_type": "", "impact": 0.45, "score": -0.5, "source": "富途牛牛", "symbols": []}
+{"news_id": "00845099ede0aab7", "ts": "2026-10-09T21:32:48", "date": "2026-10-09", "theme": "AI/算力", "event_type": "", "impact": 0.7581, "score": -0.9525, "source": "Finnhub", "symbols": ["NVDA"]}
+{"news_id": "0c4f4f35cf015cb2", "ts": "2026-10-09T21:32:49", "date": "2026-10-09", "theme": "AI/算力", "event_type": "", "impact": 0.7498, "score": -0.9191, "source": "Finnhub", "symbols": ["NVDA"]}
+{"news_id": "5d70af6d24ead27a", "ts": "2026-10-09T21:32:49", "date": "2026-10-09", "theme": "AI/算力", "event_type": "", "impact": 0.7481, "score": 0.9123, "source": "Finnhub", "symbols": ["NVDA"]}
+{"news_id": "f4046316f86b66ad", "ts": "2026-10-09T21:32:50", "date": "2026-10-09", "theme": "AI/算力", "event_type": "", "impact": 0.7157, "score": 0.7826, "source": "Finnhub", "symbols": ["NVDA"]}
+{"news_id": "391b9e3541016e6c", "ts": "2026-10-09T21:32:50", "date": "2026-10-09", "theme": "财报/公告", "event_type": "增持回购", "impact": 0.6875, "score": 0.75, "source": "个股新闻", "symbols": ["000858"]}
+{"news_id": "e981ba8146c739c9", "ts": "2026-10-09T21:32:50", "date": "2026-10-09", "theme": "财报/公告", "event_type": "财报预增", "impact": 0.6875, "score": 0.75, "source": "个股新闻", "symbols": ["000858"]}
+{"news_id": "8d2bb76f927e1051", "ts": "2026-10-09T21:32:50", "date": "2026-10-09", "theme": "AI/算力", "event_type": "", "impact": 0.6853, "score": 0.6612, "source": "Finnhub", "symbols": ["NVDA"]}
+{"news_id": "bcff81dfaa34d855", "ts": "2026-10-09T21:32:51", "date": "2026-10-09", "theme": "AI/算力", "event_type": "", "impact": 0.6639, "score": 0.5755, "source": "Finnhub", "symbols": ["TSLA"]}
+{"news_id": "155b636be3c62249", "ts": "2026-10-09T21:32:55", "date": "2026-10-09", "theme": "财报/公告", "event_type": "", "impact": 0.597, "score": -0.308, "source": "Finnhub", "symbols": ["PFE"]}
+{"news_id": "7619cee0d686afe1", "ts": "2026-10-09T21:32:56", "date": "2026-10-01", "theme": "美国宏观数据", "event_type": "", "impact": 0.5809, "score": -0.9635, "source": "ISM PMI", "symbols": []}
+{"news_id": "f4edd132d8b82852", "ts": "2026-10-09T21:32:56", "date": "2026-10-08", "theme": "原油/商品", "event_type": "", "impact": 0.5804, "score": -0.9615, "source": "EIA原油库存", "symbols": []}
+{"news_id": "d58adc176d803937", "ts": "2026-10-09T21:32:57", "date": "2026-10-02", "theme": "美国宏观数据", "event_type": "", "impact": 0.5777, "score": -0.9508, "source": "美国非农/CPI", "symbols": []}
+{"news_id": "bf45fa10c1207a93", "ts": "2026-10-09T21:32:57", "date": "2026-10-09", "theme": "白宫/贸易政策", "event_type": "", "impact": 0.5715, "score": -0.966, "source": "彭博", "symbols": []}
+{"news_id": "ebc7a2cc2ea3b9d9", "ts": "2026-10-09T21:32:58", "date": "2026-10-08", "theme": "原油/商品", "event_type": "", "impact": 0.5698, "score": -0.919, "source": "OPEC/IEA", "symbols": []}
+{"news_id": "2af294877c450ff6", "ts": "2026-10-09T21:32:58", "date": "2026-10-09", "theme": "财报/公告", "event_type": "", "impact": 0.5567, "score": -0.9068, "source": "彭博", "symbols": []}
+{"news_id": "72278884e078a60b", "ts": "2026-10-09T21:32:59", "date": "2026-10-06", "theme": "AI/算力", "event_type": "", "impact": 0.5508, "score": 0.843, "source": "IMF/世界银行", "symbols": []}
+{"news_id": "aef2b3028cc2b6d1", "ts": "2026-10-09T21:33:01", "date": "2026-10-02", "theme": "央行/货币政策、美国宏观数据", "event_type": "", "impact": 0.5427, "score": 0.811, "source": "ISM PMI", "symbols": []}
+{"news_id": "9291bf0e2e599909", "ts": "2026-10-09T21:33:01", "date": "2026-10-09", "theme": "中国外交/地缘", "event_type": "", "impact": 0.5167, "score": -0.6667, "source": "中国外交部", "symbols": []}
+{"news_id": "aba144129d5af4f4", "ts": "2026-10-09T21:33:01", "date": "2026-10-09", "theme": "财报/公告", "event_type": "减持", "impact": 0.5143, "score": -0.8571, "source": "同花顺7x24", "symbols": []}
+{"news_id": "69dfbd4c106d60ba", "ts": "2026-10-09T21:33:01", "date": "2026-10-09", "theme": "AI/算力、中国外交/地缘", "event_type": "", "impact": 0.5114, "score": 0.7258, "source": "彭博", "symbols": []}
+{"news_id": "63c0d63b7143a985", "ts": "2026-10-09T21:33:02", "date": "2026-10-09", "theme": "原油/商品", "event_type": "", "impact": 0.5082, "score": 0.7128, "source": "AP", "symbols": []}
+{"news_id": "0ddd5e9851b50220", "ts": "2026-10-09T21:33:02", "date": "2026-10-09", "theme": "半导体/芯片、券商/金融、原油/商品", "event_type": "", "impact": 0.5, "score": 0.8, "source": "新浪7x24", "symbols": []}
+{"news_id": "350f476240fc5602", "ts": "2026-10-09T21:33:02", "date": "2026-10-09", "theme": "财报/公告", "event_type": "财报预增", "impact": 0.4992, "score": 0.6667, "source": "财联社", "symbols": []}
+{"news_id": "bd7a27582016bf1d", "ts": "2026-10-09T21:33:02", "date": "2026-10-09", "theme": "财报/公告", "event_type": "减持", "impact": 0.4975, "score": -0.75, "source": "东财全球资讯", "symbols": []}
+{"news_id": "c7c59549218b2948", "ts": "2026-10-09T21:33:02", "date": "2026-10-09", "theme": "半导体/芯片、AI/算力、财报/公告", "event_type": "财报预增", "impact": 0.4975, "score": 0.75, "source": "华尔街见闻", "symbols": []}
+{"news_id": "f8ece2e95043567d", "ts": "2026-10-09T21:33:03", "date": "2026-10-01", "theme": "美国宏观数据", "event_type": "", "impact": 0.4954, "score": 0.6217, "source": "ISM PMI", "symbols": []}
+{"news_id": "eea056d3bb3d3564", "ts": "2026-10-09T21:33:03", "date": "2026-10-09", "theme": "AI/算力", "event_type": "", "impact": 0.4912, "score": 0.6448, "source": "彭博", "symbols": []}
+{"news_id": "9f03f089677bcde6", "ts": "2026-10-09T21:33:03", "date": "2026-10-09", "theme": "财报/公告", "event_type": "财报预增", "impact": 0.4892, "score": 0.6667, "source": "东财全球资讯", "symbols": []}
+{"news_id": "aaa4bc1cd016ee3a", "ts": "2026-10-09T21:33:03", "date": "2026-10-09", "theme": "新能源/锂电/光伏、财报/公告", "event_type": "财报预减", "impact": 0.4867, "score": -0.6667, "source": "财联社", "symbols": []}
+{"news_id": "a2ad686dd8bcffbc", "ts": "2026-10-09T21:33:03", "date": "2026-10-09", "theme": "财报/公告", "event_type": "处罚诉讼", "impact": 0.4767, "score": -0.6667, "source": "东财全球资讯", "symbols": []}
+{"news_id": "78265505aecd1b49", "ts": "2026-10-09T21:33:03", "date": "2026-10-09", "theme": "AI/算力、机器人", "event_type": "", "impact": 0.4767, "score": 0.6667, "source": "东财全球资讯", "symbols": []}
+{"news_id": "90fc7fc618fcd7ce", "ts": "2026-10-09T21:33:04", "date": "2026-09-30", "theme": "国会/听证会", "event_type": "", "impact": 0.4705, "score": -0.5218, "source": "国会听证会", "symbols": []}
+{"news_id": "bcf423e5cd7926dc", "ts": "2026-10-09T21:33:05", "date": "2026-10-09", "theme": "财报/公告", "event_type": "减持", "impact": 0.4667, "score": -0.6667, "source": "同花顺7x24", "symbols": []}
+{"news_id": "1cf50c70ea917e7e", "ts": "2026-10-09T21:33:05", "date": "2026-10-09", "theme": "白宫/贸易政策", "event_type": "", "impact": 0.4649, "score": 0.5395, "source": "Reuters", "symbols": []}
+{"news_id": "6716632d71e73b34", "ts": "2026-10-09T21:33:05", "date": "2026-10-09", "theme": "国会/听证会", "event_type": "", "impact": 0.4575, "score": 0.5, "source": "财联社", "symbols": []}
+{"news_id": "1954df2677beb1f2", "ts": "2026-10-09T21:33:05", "date": "2026-10-09", "theme": "半导体/芯片、中国外交/地缘", "event_type": "", "impact": 0.4575, "score": 0.5, "source": "财联社", "symbols": []}

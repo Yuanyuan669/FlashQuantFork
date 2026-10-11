@@ -306,6 +306,12 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
                   f"（清单 {len(uni)} 只）")
         except Exception as e:  # noqa: BLE001
             print(f"[monitor] 逐股新闻失败: {type(e).__name__}")
+    # 分派策略预警（ops-lessons §五：单批 >1000 条英文应转 Windows）
+    en_vol = sum(1 for it in all_items if it.get("lang") == "en")
+    en_warn = int((cfg.get("monitor") or {}).get("en_volume_warn", 1000))
+    if en_vol > en_warn:
+        print(f"[monitor] ⚠ 本轮英文条目 {en_vol} 条 > {en_warn} 阈值——"
+              f"按分派策略应转 Windows 执行（Pi 仅适合 ≤500 条的日常增量）", flush=True)
     # 去重
     uniq = {}
     for it in all_items:

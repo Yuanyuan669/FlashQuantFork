@@ -24,21 +24,34 @@ sys.path.insert(0, str(ROOT))
 
 import yaml  # noqa: E402
 
+from datetime import datetime, timedelta, timezone  # noqa: E402
+from zoneinfo import ZoneInfo  # noqa: E402
+
+TZ = ZoneInfo("Asia/Shanghai")
+
 from news_aggregator.impact import compute_impact  # noqa: E402
 from news_aggregator.sentiment import configure_backend  # noqa: E402
 
 STATE_PATH = ROOT / "news" / "rescore_state.json"
 
 
-def load_state() -> dict:
-    """断点续跑：记录已完成的日文件（文件名 -> 条数）。中断后重跑自动跳过。"""
+def load_state(backend: str) -> dict:
+    """断点续跑：记录后端名 + 已完成的日文件。
+
+    state 里记录 backend：换后端（如词典->FinBERT）后旧状态作废全量重算，
+    避免不同量纲的打分结果互相覆盖。
+    """
     p = STATE_PATH
     if p.exists():
         try:
-            return json.loads(p.read_text(encoding="utf-8"))
+            state = json.loads(p.read_text(encoding="utf-8"))
+            if state.get("backend") == backend:
+                return state
+            print(f"[rescore] 状态文件后端为 {state.get('backend')!r}，"
+                  f"与当前 {backend!r} 不符 -> 作废重算")
         except json.JSONDecodeError:
             pass
-    return {"done": {}}
+    return {"backend": backend, "done": {}}
 
 
 def save_state(state: dict) -> None:
@@ -53,7 +66,19 @@ def main() -> int:
     args = ap.parse_args()
 
     cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
+    backend_name = str((cfg.get("sentiment") or {}).get("backend") or "lexicon")
     configure_backend(cfg)
+
+    # 重打分场景禁止静默降级：配置了 FinBERT 但环境不可用 -> 硬报错。
+    # （降级会用词典覆盖 FinBERT 结果，属于数据污染——2026-10-11 实证）
+    if backend_name == "finbert":
+        try:
+            import transformers  # noqa: F401
+        except ImportError as e:
+            raise SystemExit(f"[rescore] FinBERT 不可用（{e}），"
+                             "拒绝用词典重打分。请先安装 transformers/torch 或改 backend=lexicon。")
+
+    state = load_state(backend_name)
     imp_cfg = cfg.get("impact") or {}
     weights = imp_cfg.get("weights") or None
     window = int(imp_cfg.get("window_minutes", 60))
@@ -64,15 +89,12 @@ def main() -> int:
     raw_dir = ROOT / "news" / "raw"
     files = sorted(raw_dir.glob("*.jsonl"))
     if args.days > 0:
-        from datetime import datetime, timedelta, timezone
-        from zoneinfo import ZoneInfo
         today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
         keep = {(today - timedelta(days=o)).strftime("%Y%m%d") for o in range(args.days)}
         files = [p for p in files if p.stem in keep]
     print(f"[rescore] 待处理 {len(files)} 个日文件 | 后端: "
           f"{(cfg.get('sentiment') or {}).get('backend')}")
 
-    state = load_state()
     done = state.setdefault("done", {})
     todo = [p for p in files if p.name not in done]
     skipped = len(files) - len(todo)

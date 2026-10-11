@@ -91,6 +91,26 @@ def collect(news_dir: Path, days: int = 7, top: int = 100) -> dict:
     neg = sum(1 for it in items if float(it.get("sentiment") or 0) < -0.2)
     avg_impact = (sum(float(it.get("impact") or 0) for it in items) / total) if total else 0.0
 
+    # 情绪分布（窗口全量，供环形图；与 KPI 同口径）
+    def _bucket(v):
+        return 0 if v <= -0.6 else 1 if v <= -0.2 else 2 if v < 0.2 else 3 if v < 0.6 else 4
+    sentiment_dist = [0, 0, 0, 0, 0]
+    for it in items:
+        sentiment_dist[_bucket(float(it.get("sentiment") or 0))] += 1
+
+    # 标的代码 -> 中文名（来自 universe_tiers 清单；未收录的显示代码）
+    names = {}
+    ut = Path(__file__).resolve().parents[1] / "data" / "universe_tiers.yaml"
+    if ut.exists():
+        try:
+            import yaml as _yaml
+            for s in (_yaml.safe_load(ut.read_text(encoding="utf-8")) or {}).get("symbols") or []:
+                sym = s.get("symbol") or s.get("code")
+                if sym:
+                    names[sym] = s.get("name") or sym
+        except Exception:  # noqa: BLE001
+            pass
+
     # 来源分布
     src = {}
     for it in items:
@@ -181,6 +201,8 @@ def collect(news_dir: Path, days: int = 7, top: int = 100) -> dict:
             "sources": len(src),
         },
         "source_stats": source_stats,
+        "sentiment_dist": sentiment_dist,
+        "names": names,
         "top_news": top_news,
         "market_trend": market_trend,
         "symbol_trends": symbol_trends,
@@ -254,17 +276,21 @@ svg text{fill:var(--dim);font-size:10px}
 
   <div class="two">
     <div class="panel">
-      <h2>来源分布 <small>Top 15</small></h2>
-      <div id="sources"></div>
+      <h2 id="h2src">来源分布 <small>窗口全量（与 KPI 同口径）</small></h2>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+        <div id="srcdonut"></div><div id="srclegend" style="flex:1;min-width:220px"></div>
+      </div>
     </div>
     <div class="panel">
-      <h2>情绪分布</h2>
-      <div id="sentdist"></div>
+      <h2>情绪分布 <small>窗口全量（与 KPI 同口径）</small></h2>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+        <div id="sentdonut"></div><div id="sentlegend" style="flex:1;min-width:220px"></div>
+      </div>
     </div>
   </div>
 
   <div class="panel">
-    <h2>高影响新闻 <small>按影响分排序 · Top <span id="topn"></span></small></h2>
+    <h2>高影响新闻 <small>影响分 Top 切片（展示容量 300，全量在归档/TM 库）</small></h2>
     <div class="controls">
       <select id="tn"><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option><option value="99999">全部</option></select><input type="text" id="q" placeholder="搜索标题...">
       <select id="src"><option value="">全部来源</option></select>
@@ -311,7 +337,7 @@ function lineChart(rows, h=120){
   const x = i => pad + i*(w-2*pad)/Math.max(1,rows.length-1);
   const y = v => h/2 - v/mx*(h/2-10);
   const path = rows.map((r,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(r.score).toFixed(1)).join('');
-  const pts = rows.map((r,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(r.score).toFixed(1)}" r="2" fill="${r.score>=0?'#3fb950':'#f85149'}"/>`).join('');
+  const pts = rows.map((r,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(r.score).toFixed(1)}" r="3" fill="${r.score>=0?'#3fb950':'#f85149'}" style="cursor:pointer"><title>${rows[i].date}：${r.score.toFixed(3)}</title></circle>`).join('');
   const labels = [0, Math.floor(rows.length/2), rows.length-1]
     .filter((v,i,a)=>a.indexOf(v)===i && rows[v])
     .map(i=>`<text x="${x(i)}" y="${h-2}" text-anchor="middle">${rows[i].date}</text>`).join('');
@@ -321,7 +347,8 @@ function lineChart(rows, h=120){
 }
 document.getElementById('market').innerHTML = lineChart(DATA.market_trend);
 
-// 个股情绪（默认折叠表格：标的 / 最新分 / 迷你走势 / 覆盖天数）
+// 个股情绪（默认折叠表格：中文名 / 最新分 / 迷你走势 / 覆盖天数）
+const nm = DATA.names || {};
 const sym = DATA.symbol_trends || {};
 const symRows = Object.entries(sym).map(([s, rows]) => ({
   s, rows, last: rows.length ? rows[rows.length - 1].score : 0
@@ -339,28 +366,48 @@ const symChip = v => v>0.2?'<span class="chip pos">'+fmt(v,2)+'</span>'
 document.getElementById('symbols').innerHTML = symRows.length
   ? `<details><summary style="cursor:pointer">共 ${symRows.length} 只（点击展开）</summary>
       <table style="margin-top:8px"><tr><th>标的</th><th>最新情绪分</th><th>近30日走势</th><th>覆盖天数</th></tr>` +
-      symRows.map(r=>`<tr><td>${esc(r.s)}</td><td>${symChip(r.last)}</td>` +
+      symRows.map(r=>`<tr><td title="${esc(r.s)}">${esc(nm[r.s] || r.s)}</td><td>${symChip(r.last)}</td>` +
         `<td>${spark(r.rows)}</td><td>${r.rows.length}</td></tr>`).join('') +
       `</table></details>`
   : '<div class="hint">无个股情绪（A股代码出现在新闻中时积累）</div>';
 
-// 来源分布
-const mx = Math.max(1, ...DATA.source_stats.map(s=>s.count));
-document.getElementById('sources').innerHTML = DATA.source_stats.length
-  ? DATA.source_stats.map(s=>`<div class="hbar"><span class="label" title="${esc(s.source)}">${esc(s.source)}</span><span class="track"><span class="fill" style="width:${(s.count/mx*100).toFixed(1)}%"></span></span><span class="num">${s.count} 条</span></div>`).join('')
-  : '<div class="empty">暂无数据</div>';
+function donut(data){ // data: [{label, value, color}]，SVG 环形图 + 原生 tooltip
+  const total = data.reduce((s,d)=>s+d.value,0) || 1;
+  let acc = 0; const segs = [];
+  const R=52, C=2*Math.PI*R;
+  for(const d of data){
+    const frac = d.value/total;
+    segs.push(`<circle r="${R}" cx="70" cy="70" fill="none" stroke="${d.color}" stroke-width="20" stroke-dasharray="${(frac*C).toFixed(2)} ${(C+1).toFixed(2)}" stroke-dashoffset="${(-acc*C).toFixed(2)}" transform="rotate(-90 70 70)"><title>${esc(d.label)}：${d.value}（${(frac*100).toFixed(1)}%）</title></circle>`);
+    acc += frac;
+  }
+  return `<svg width="140" height="140" viewBox="0 0 140 140">${segs.join('')}<text x="70" y="67" text-anchor="middle" fill="#c9d1d9" font-size="14" font-weight="600">${total}</text><text x="70" y="83" text-anchor="middle" fill="#8b949e" font-size="9">总计</text></svg>`;
+}
+function legend(data){
+  const total = data.reduce((s,d)=>s+d.value,0) || 1;
+  return data.map(d=>`<div class="hbar"><span class="label" title="${esc(d.label)}">${esc(d.label)}</span><span class="track"><span class="fill" style="width:${(d.value/total*100).toFixed(1)}%;background:${d.color}"></span></span><span class="num">${d.value}（${(d.value/total*100).toFixed(0)}%）</span></div>`).join('');
+}
+const PALETTE = ['#58a6ff','#3fb950','#d29922','#f85149','#bc8cff','#39c5cf','#ff7b72','#79c0ff','#d2a8ff','#7ee787','#ffa657','#8b949e'];
 
-// 情绪分布
-function bucket(v){ return v<=-0.6?0 : v<=-0.2?1 : v<0.2?2 : v<0.6?3 : 4; }
-const names=['强负面','负面','中性','正面','强正面'], colors=['#f85149','#f8514988','#8b949e','#3fb95088','#3fb950'];
-const buckets=[0,0,0,0,0];
-DATA.top_news.forEach(n=>buckets[bucket(n.sentiment)]++);
-const bm=Math.max(1,...buckets);
-document.getElementById('sentdist').innerHTML = names.map((n,i)=>
-  `<div class="hbar"><span class="label">${n}</span><span class="track"><span class="fill" style="width:${(buckets[i]/bm*100).toFixed(1)}%;background:${colors[i]}"></span></span><span class="num">${buckets[i]}</span></div>`).join('');
+// 来源分布
+const srcAll = DATA.source_stats;
+const srcTop = srcAll.slice(0, 8);
+const srcRest = srcAll.slice(8).reduce((s,d)=>s+d.count,0);
+const srcData = (srcRest ? srcTop.concat([{label:'其他', value:srcRest}]) : srcTop)
+  .map(d => ({label: d.source || d.label, value: d.value || d.count, color: PALETTE[0]}));
+srcData.forEach((d,i)=> d.color = PALETTE[i % PALETTE.length]);
+document.getElementById('srcdonut').innerHTML = donut(srcData);
+document.getElementById('srclegend').innerHTML = legend(srcData);
+
+// 情绪分布（窗口全量，payload 预计算）
+const SENT_NAMES = ['强负面','负面','中性','正面','强正面'];
+const SENT_COLORS = ['#f85149','#f8514988','#8b949e','#3fb95088','#3fb950'];
+const buckets = DATA.sentiment_dist || [0,0,0,0,0];
+const sentData = SENT_NAMES.map((n,i)=>({label:n, value:buckets[i], color:SENT_COLORS[i]}));
+document.getElementById('sentdonut').innerHTML = donut(sentData);
+document.getElementById('sentlegend').innerHTML = legend(sentData);
 
 // 新闻表（可过滤）
-document.getElementById('topn').textContent = DATA.top_news.length;
+
 const srcSel = document.getElementById('src');
 [...new Set(DATA.top_news.map(n=>n.source))].sort().forEach(s=>{
   const o=document.createElement('option'); o.value=s; o.textContent=s; srcSel.appendChild(o);

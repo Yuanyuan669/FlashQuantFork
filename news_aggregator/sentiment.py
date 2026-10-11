@@ -272,8 +272,20 @@ class FinBertBackend(SentimentBackend):
                 en_texts.append(str(t))
         if en_texts and self._ensure():
             try:
+                import time as _t
                 en_texts = [x[:1500] for x in en_texts]   # 截断超长，防 OOM
-                preds = self._pipe(en_texts, batch_size=self.batch_size)
+                t0 = _t.time()
+                preds = []
+                B = self.batch_size
+                for i in range(0, len(en_texts), B):
+                    chunk = en_texts[i:i + B]
+                    preds.extend(self._pipe(chunk, batch_size=B))
+                    done = min(i + B, len(en_texts))
+                    if done % 200 < B or done == len(en_texts):
+                        rate = done / max(_t.time() - t0, 1e-6)
+                        eta = (len(en_texts) - done) / max(rate, 1e-6)
+                        print(f"[finbert] 打分 {done}/{len(en_texts)} "
+                              f"({rate:.1f} 条/秒，剩余约 {eta:.0f} 秒)", flush=True)
                 for i, pred in zip(en_idx, preds):
                     out[i] = self._map(pred)
             except Exception:  # noqa: BLE001

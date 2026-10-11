@@ -135,16 +135,26 @@ def collect(news_dir: Path, days: int = 7, top: int = 50) -> dict:
         "lang": it.get("lang") or "",
     } for it in ranked]
 
-    # 日度情绪
+    # 日度情绪：优先 sentiment_history.json（monitor 每轮增量更新，最实时）；
+    # daily_sentiment.json 仅由 run.py 日聚合刷新，作回退
     market_trend, symbol_trends = [], {}
-    ds_path = news_dir / "daily_sentiment.json"
-    if ds_path.exists():
+    sh_path = news_dir / "sentiment_history.json"
+    if sh_path.exists():
         try:
-            ds = json.loads(ds_path.read_text(encoding="utf-8"))
-            market_trend = _trend(ds.get("market"))
-            symbol_trends = {k: _trend(v, 30) for k, v in (ds.get("symbols") or {}).items()}
-        except (json.JSONDecodeError, OSError):
+            sh_data = json.loads(sh_path.read_text(encoding="utf-8"))
+            market_trend = _trend(sh_data.get("market"))
+            symbol_trends = {k: _trend(v, 30) for k, v in (sh_data.get("symbols") or {}).items()}
+        except (json.JSONDecodeError, ValueError):
             pass
+    if not market_trend:
+        ds_path = news_dir / "daily_sentiment.json"
+        if ds_path.exists():
+            try:
+                ds_data = json.loads(ds_path.read_text(encoding="utf-8"))
+                market_trend = _trend(ds_data.get("market"))
+                symbol_trends = {k: _trend(v, 30) for k, v in (ds_data.get("symbols") or {}).items()}
+            except (json.JSONDecodeError, OSError):
+                pass
 
     alert_rows = [{
         "ts": (a.get("ts") or "")[:19].replace("T", " "),

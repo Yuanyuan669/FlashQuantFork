@@ -25,7 +25,7 @@ from news_aggregator.dashboard import build_from_root, open_in_browser, render_f
 def main() -> int:
     ap = argparse.ArgumentParser(description="生成静态舆情 Dashboard")
     ap.add_argument("--days", type=int, default=7, help="纳入近 N 天的原始新闻（默认 7）")
-    ap.add_argument("--top", type=int, default=50, help="高影响新闻展示条数（默认 50）")
+    ap.add_argument("--top", type=int, default=100, help="高影响新闻展示条数（默认 100）")
     ap.add_argument("--out", default="", help="输出路径（默认 dashboard/index.html）")
     ap.add_argument("--open", action="store_true", help="生成后用浏览器打开")
     ap.add_argument("--watch", type=int, default=0, metavar="SEC",

@@ -80,7 +80,7 @@ def _trend(series: dict, limit: int = 60) -> list:
     return out[-limit:]
 
 
-def collect(news_dir: Path, days: int = 7, top: int = 50) -> dict:
+def collect(news_dir: Path, days: int = 7, top: int = 100) -> dict:
     """聚合各数据源为渲染用 payload。"""
     items = _iter_raw(news_dir, days)
     alerts = _load_alerts(news_dir)
@@ -247,7 +247,7 @@ svg text{fill:var(--dim);font-size:10px}
   <div class="cards" id="cards"></div>
 
   <div class="panel">
-    <h2>市场日度情绪 <small>daily_sentiment.json · 近 60 天</small></h2>
+    <h2>市场日度情绪 <small>sentiment_history.json · 近 60 天 · 点色：绿=当日≥0，红=当日&lt;0</small></h2>
     <div id="market"></div>
     <div id="symbols" style="margin-top:12px"></div>
   </div>
@@ -275,6 +275,7 @@ svg text{fill:var(--dim);font-size:10px}
       </select>
       <label>影响分 ≥ <span id="imv">0</span> <input type="range" id="imin" min="0" max="100" value="0"></label>
       <label><input type="checkbox" id="onlyth"> 只看命中主题</label>
+      <select id="tn"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option><option value="99999">全部</option></select>
     </div>
     <div id="newstable"></div>
   </div>
@@ -320,13 +321,27 @@ function lineChart(rows, h=120){
 }
 document.getElementById('market').innerHTML = lineChart(DATA.market_trend);
 
-// 个股情绪
-const sym = DATA.symbol_trends;
-document.getElementById('symbols').innerHTML = Object.keys(sym).length
-  ? Object.entries(sym).map(([s,rows])=>{
-      const last = rows.length?rows[rows.length-1].score:0;
-      return `<div class="hbar"><span class="label">${esc(s)}</span><span class="track"><span class="fill" style="width:${Math.min(100,Math.abs(last)*100)}%;background:${last>=0?'#3fb950':'#f85149'}"></span></span><span class="num">${fmt(last,2)}</span></div>`;
-    }).join('')
+// 个股情绪（默认折叠表格：标的 / 最新分 / 迷你走势 / 覆盖天数）
+const sym = DATA.symbol_trends || {};
+const symRows = Object.entries(sym).map(([s, rows]) => ({
+  s, rows, last: rows.length ? rows[rows.length - 1].score : 0
+})).sort((a, b) => b.last - a.last);
+function spark(rows){
+  if(!rows.length) return '';
+  const w=64,h=16,vs=rows.map(r=>r.score);
+  const mx=Math.max(0.05,...vs.map(Math.abs));
+  const pts=rows.map((r,i)=>`${(i*w/Math.max(1,rows.length-1)).toFixed(1)},${(h/2-r.score/mx*(h/2-1)).toFixed(1)}`).join(' ');
+  return `<svg width="${w}" height="${h}" style="vertical-align:middle"><polyline points="${pts}" fill="none" stroke="#58a6ff" stroke-width="1"/></svg>`;
+}
+const symChip = v => v>0.2?'<span class="chip pos">'+fmt(v,2)+'</span>'
+  : v<-0.2?'<span class="chip neg">'+fmt(v,2)+'</span>'
+  : '<span class="chip mid">'+fmt(v,2)+'</span>';
+document.getElementById('symbols').innerHTML = symRows.length
+  ? `<details><summary style="cursor:pointer">共 ${symRows.length} 只（点击展开）</summary>
+      <table style="margin-top:8px"><tr><th>标的</th><th>最新情绪分</th><th>近30日走势</th><th>覆盖天数</th></tr>` +
+      symRows.map(r=>`<tr><td>${esc(r.s)}</td><td>${symChip(r.last)}</td>` +
+        `<td>${spark(r.rows)}</td><td>${r.rows.length}</td></tr>`).join('') +
+      `</table></details>`
   : '<div class="hint">无个股情绪（A股代码出现在新闻中时积累）</div>';
 
 // 来源分布
@@ -364,6 +379,8 @@ function renderNews(){
     (!s || n.source===s) && n.impact>=im && (!only || n.theme));
   if(sort==='time') rows=rows.slice().sort((a,b)=>b.ts.localeCompare(a.ts));
   else if(sort==='sent') rows=rows.slice().sort((a,b)=>b.sentiment-a.sentiment);
+  const tn=parseInt(document.getElementById('tn').value,10)||rows.length;
+  rows=rows.slice(0,tn);
   document.getElementById('newstable').innerHTML = rows.length
     ? `<table><tr><th>时间</th><th>来源</th><th>标题</th><th>情绪</th><th>影响分</th><th>标签</th></tr>`+
       rows.map(n=>`<tr><td style="white-space:nowrap">${esc(n.ts)}</td><td style="white-space:nowrap">${esc(n.source)}</td>`+
@@ -374,20 +391,21 @@ function renderNews(){
       '</table>'
     : '<div class="empty">无匹配新闻</div>';
 }
-['q','src','sort','imin','onlyth'].forEach(id=>{
+['q','src','sort','imin','onlyth','tn'].forEach(id=>{
   const el=document.getElementById(id);
   el.addEventListener(el.type==='range'?'input':'change',renderNews);
   el.addEventListener('input',renderNews);
 });
 renderNews();
 
-// 告警表
+// 告警表（默认折叠）
 const alerts=DATA.alerts;
 document.getElementById('alerttable').innerHTML = alerts.length
-  ? `<table><tr><th>时间</th><th>主题</th><th>事件类型</th><th>影响分</th><th>情绪</th><th>来源</th><th>标的</th></tr>`+
+  ? `<details><summary style="cursor:pointer">共 ${alerts.length} 条（点击展开）</summary>
+     <table style="margin-top:8px"><tr><th>时间</th><th>主题</th><th>事件类型</th><th>影响分</th><th>情绪</th><th>来源</th><th>标的</th></tr>`+
     alerts.map(a=>`<tr><td style="white-space:nowrap">${esc(a.ts)}</td><td>${esc(a.theme)}</td><td>${esc(a.event_type)}</td>`+
     `<td>${a.impact.toFixed(3)}</td><td>${sentChip(a.score)}</td><td>${esc(a.source)}</td>`+
-    `<td>${a.symbols.map(x=>'<span class="chip sym">'+esc(x)+'</span>').join('')}</td></tr>`).join('')+'</table>'
+    `<td>${a.symbols.map(x=>'<span class="chip sym">'+esc(x)+'</span>').join('')}</td></tr>`).join('')+'</table></details>'
   : '<div class="empty">暂无告警记录（alerts.jsonl 仅在非 dry-run 推送成功后写入）</div>';
 </script>
 </body>
@@ -402,7 +420,7 @@ def render(data: dict, auto_refresh_sec: int = 0) -> str:
     return _HTML.replace("__REFRESH__", refresh).replace("__DATA__", payload)
 
 
-def build(news_dir: Path, out: Path, days: int = 7, top: int = 50) -> Path:
+def build(news_dir: Path, out: Path, days: int = 7, top: int = 100) -> Path:
     """收集数据并写出单文件 HTML，返回输出路径。"""
     data = collect(news_dir, days=days, top=top)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -410,14 +428,14 @@ def build(news_dir: Path, out: Path, days: int = 7, top: int = 50) -> Path:
     return out
 
 
-def render_fresh(days: int = 7, top: int = 50, auto_refresh_sec: int = 60) -> str:
+def render_fresh(days: int = 7, top: int = 100, auto_refresh_sec: int = 60) -> str:
     """每次请求实时重建（serve 模式用）：收集 -> 渲染。"""
     root = Path(__file__).resolve().parents[1]
     data = collect(root / "news", days=days, top=top)
     return render(data, auto_refresh_sec=auto_refresh_sec)
 
 
-def build_from_root(root: Path, days: int = 7, top: int = 50) -> Path:
+def build_from_root(root: Path, days: int = 7, top: int = 100) -> Path:
     return build(root / "news", root / DEFAULT_OUT, days=days, top=top)
 
 

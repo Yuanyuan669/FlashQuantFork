@@ -234,7 +234,11 @@ class FinBertBackend(SentimentBackend):
                 pos += s
             elif "negative" in lab or "bearish" in lab or lab in ("neg", "down", "loss", "losses"):
                 neg += s
-        return pos - neg
+        score = pos - neg
+        # 量纲对齐：FinBERT 概率差的幅度系统性高于词典公式 (p-n)/(p+n+1)
+        # （实测混跑 Finnhub |sent| 0.384 vs 词典系 0.14-0.27），直接混入 impact
+        # 的 intensity 分量会结构性抬高英文源。0.6 ≈ 词典强新闻上限 / FinBERT 强新闻均值。
+        return max(-1.0, min(1.0, score * 0.6))
 
     def score(self, text: str) -> float:
         if not text or _is_cjk(str(text)):

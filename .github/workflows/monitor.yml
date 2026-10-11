@@ -1,20 +1,17 @@
-name: monitor
+
+name: flashquant
 
 on:
   # 2026-10-09：schedule 已迁移至 cron-job.org 外部触发（workflow_dispatch），勿在此恢复。
-  # 原因（实测）：GitHub 内置 schedule 对本仓投递严重延迟且不规律 —— 2026-10-07~09 的
-  # 7 次 schedule run 中，created_at 与 run_started_at 差值全为 0（自建机秒接，延迟不在
-  # runner 侧），但投递时刻比 cron 晚 55 分钟 ~ 5.9 小时，且缺槽与重复并存。
-  # monitor 的四个时点（盘前 08:45 / 午间 11:35 / 收盘 15:05 / 美股开盘 21:30）
-  # 晚数小时即失去意义。GitHub 对 fork 仓库的 scheduled workflow 默认禁用、启用后投递
-  # 仍不可靠，故统一改外部触发（与 TradingMaster 同一结论）。
-  # 原 cron（保留备查，勿恢复；UTC，* * 1-5）= 北京 08:45 / 11:35 / 15:05 / 21:30：
-  #   - cron: "45 0 * * 1-5"
-  #   - cron: "35 3 * * 1-5"
-  #   - cron: "5 7 * * 1-5"
-  #   - cron: "30 13 * * 1-5"
+  # 原因（实测）：GitHub 内置 schedule 对本仓投递严重延迟且不规律（55 分钟 ~ 5.9 小时）。
+  # 外部触发 payload 示例：{"ref":"master","inputs":{"mode":"daily"}}
   workflow_dispatch:
     inputs:
+      mode:
+        description: "monitor=常规采集+聚合告警；daily=收盘后日报（额外跑 run.py：日报/LLM综述/daily_sentiment/dashboard 刷新）"
+        type: choice
+        options: [monitor, daily]
+        default: monitor
       rescore:
         description: "重打分 raw 全量（FinBERT/词典）+ 重建情绪历史（一次性维护操作）"
         type: boolean
@@ -24,13 +21,13 @@ permissions:
   contents: write
 
 concurrency:
-  group: monitor
+  group: flashquant
   cancel-in-progress: false
 
 jobs:
-  monitor:
+  flashquant:
     runs-on: [self-hosted, flashquant]
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,51 +54,55 @@ jobs:
             uv venv "$VENV" -p 3.12
           fi
           uv pip install -p "$VENV/bin/python" -r requirements-server.txt
-          # FinBERT 模型预下载（~440MB，走 runner 代理；失败不阻塞，运行时会重试+降级词典）
+          # FinBERT 模型预下载（~440MB，HF 国内镜像直连；失败不阻塞，运行时会重试+降级词典）
           "$VENV/bin/python" -c "from transformers import pipeline; pipeline('text-classification', model='ProsusAI/finbert')" \
             || echo "[warn] FinBERT 预下载失败"
           echo "VENV=$VENV" >> "$GITHUB_ENV"
 
       - name: Run monitor (one round)
-        run: |
-          "$VENV/bin/python" news_aggregator/monitor.py --once --no-stock-impact
         env:
-          BARGO_API_KEY: ${{ secrets.BARGO_API_KEY }}
           HF_ENDPOINT: https://hf-mirror.com
           no_proxy: hf-mirror.com,127.0.0.1,localhost
+          BARGO_API_KEY: ${{ secrets.BARGO_API_KEY }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
-          WECOM_WEBHOOK_DAILY: ${{ secrets.WECOM_WEBHOOK_DAILY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          "$VENV/bin/python" news_aggregator/monitor.py --once --no-stock-impact
+
+      - name: Daily report + summary + dashboard (mode=daily only)
+        if: inputs.mode == 'daily'
+        env:
+          HF_ENDPOINT: https://hf-mirror.com
+          no_proxy: hf-mirror.com,127.0.0.1,localhost
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+          WECOM_WEBHOOK_DAILY: ${{ secrets.WECOM_WEBHOOK_DAILY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        run: |
+          "$VENV/bin/python" news_aggregator/run.py --push
 
       - name: Rescore raw (one-off)
         if: ${{ inputs.rescore == true }}
         timeout-minutes: 40
         run: |
           "$VENV/bin/python" scripts/rescore_raw.py
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add news/
-          if ! git diff --cached --quiet; then
-            git commit -m "rescore: raw rescored with current backend ($(date '+%F %H:%M'))"
-            git pull --rebase origin master
-            git push
-          fi
 
       - name: Commit news state
-        if: ${{ inputs.rescore != true }}
         run: |
-          # seen.json / raw / alerts 必须持久化：跨 run 去重与告警状态依赖它们
+          # seen.json / raw / alerts / daily_sentiment / report / dashboard 必须持久化。
+          # 本工作流是 news/ 的唯一写入方（news-aggregator.yml 已退役），不再有多写冲突。
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add news/
+          git add news/ dashboard/index.html
           if git diff --cached --quiet; then
             echo "no changes"
           else
-            git commit -m "chore: monitor update $(date '+%F %H:%M')"
+            git commit -m "chore: flashquant update $(date '+%F %H:%M') mode=${{ inputs.mode }}"
+            git pull --rebase --autostash origin master
+            git push
           fi
-          # 本地与 CI 可能并发推送：先同步再推，避免 non-fast-forward
-          git pull --rebase origin master
-          git push

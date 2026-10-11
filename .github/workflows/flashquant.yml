@@ -88,7 +88,7 @@ jobs:
 
       - name: Rescore raw (one-off)
         if: ${{ inputs.rescore == true }}
-    timeout-minutes: 90
+        timeout-minutes: 60
         run: |
           "$VENV/bin/python" scripts/rescore_raw.py
 

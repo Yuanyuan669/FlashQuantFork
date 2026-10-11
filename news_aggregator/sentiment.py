@@ -217,9 +217,16 @@ class FinBertBackend(SentimentBackend):
         if self._err is not None:
             return False
         try:
+            import torch
             from transformers import pipeline  # noqa: E402
+            # Pi 等小内存设备：限制线程数，避免 OOM/换页颠簸
+            try:
+                torch.set_num_threads(4)
+            except Exception:  # noqa: BLE001
+                pass
             self._pipe = pipeline("text-classification", model=self.model_name,
-                                  top_k=None, device=self.device)
+                                  top_k=None, device=self.device,
+                                  truncation=True, max_length=256)
             self._ok = True
         except Exception as e:  # noqa: BLE001
             self._err = e
@@ -246,7 +253,9 @@ class FinBertBackend(SentimentBackend):
         if not self._ensure():
             return _lexicon_score(text)
         try:
-            return self._map(self._pipe(str(text))[0])
+            # 截断超长文本：FinBERT 上限 512 token，超长序列（实测 1596 token）
+            # 会触发 O(n²) 注意力内存膨胀 -> Pi 上被内核 OOM kill
+            return self._map(self._pipe(str(text)[:1500])[0])
         except Exception:  # noqa: BLE001
             return _lexicon_score(text)
 
@@ -263,6 +272,7 @@ class FinBertBackend(SentimentBackend):
                 en_texts.append(str(t))
         if en_texts and self._ensure():
             try:
+                en_texts = [x[:1500] for x in en_texts]   # 截断超长，防 OOM
                 preds = self._pipe(en_texts, batch_size=self.batch_size)
                 for i, pred in zip(en_idx, preds):
                     out[i] = self._map(pred)

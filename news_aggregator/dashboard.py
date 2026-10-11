@@ -266,7 +266,7 @@ svg text{fill:var(--dim);font-size:10px}
   <div class="panel">
     <h2>高影响新闻 <small>按影响分排序 · Top <span id="topn"></span></small></h2>
     <div class="controls">
-      <input type="text" id="q" placeholder="搜索标题...">
+      <select id="tn"><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option><option value="99999">全部</option></select><input type="text" id="q" placeholder="搜索标题...">
       <select id="src"><option value="">全部来源</option></select>
       <select id="sort">
         <option value="impact">按影响分</option>
@@ -275,7 +275,7 @@ svg text{fill:var(--dim);font-size:10px}
       </select>
       <label>影响分 ≥ <span id="imv">0</span> <input type="range" id="imin" min="0" max="100" value="0"></label>
       <label><input type="checkbox" id="onlyth"> 只看命中主题</label>
-      <select id="tn"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option><option value="99999">全部</option></select>
+      
     </div>
     <div id="newstable"></div>
   </div>

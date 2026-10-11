@@ -89,7 +89,7 @@ def main() -> int:
             raise SystemExit(f"[rescore] FinBERT 不可用（{e}），"
                              "拒绝用词典重打分。请先安装 transformers/torch 或改 backend=lexicon。")
 
-    state = load_state(backend_name)
+    state = load_state(backend_name, state_p)
     imp_cfg = cfg.get("impact") or {}
     weights = imp_cfg.get("weights") or None
     window = int(imp_cfg.get("window_minutes", 60))

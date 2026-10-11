@@ -27,6 +27,25 @@ import yaml  # noqa: E402
 from news_aggregator.impact import compute_impact  # noqa: E402
 from news_aggregator.sentiment import configure_backend  # noqa: E402
 
+STATE_PATH = ROOT / "news" / "rescore_state.json"
+
+
+def load_state() -> dict:
+    """断点续跑：记录已完成的日文件（文件名 -> 条数）。中断后重跑自动跳过。"""
+    p = STATE_PATH
+    if p.exists():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+    return {"done": {}}
+
+
+def save_state(state: dict) -> None:
+    tmp = STATE_PATH.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(STATE_PATH)
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="raw 全量重打分")
@@ -53,8 +72,14 @@ def main() -> int:
     print(f"[rescore] 待处理 {len(files)} 个日文件 | 后端: "
           f"{(cfg.get('sentiment') or {}).get('backend')}")
 
+    state = load_state()
+    done = state.setdefault("done", {})
+    todo = [p for p in files if p.name not in done]
+    skipped = len(files) - len(todo)
+    if skipped:
+        print(f"[rescore] 断点续跑：跳过已完成 {skipped} 个，待处理 {len(todo)} 个")
     total = rescored = 0
-    for k, p in enumerate(files, 1):
+    for k, p in enumerate(todo, 1):
         lines = [l for l in p.read_text(encoding="utf-8", errors="replace").splitlines()
                  if l.strip().startswith("{")]
         items = []
@@ -64,6 +89,8 @@ def main() -> int:
             except json.JSONDecodeError:
                 continue
         if not items:
+            done[p.name] = 0
+            save_state(state)
             continue
         total += len(items)
         out = compute_impact(items, themes, weights, window, burst_cap)
@@ -71,8 +98,10 @@ def main() -> int:
         if p.read_text(encoding="utf-8", errors="replace") != new_text:
             p.write_text(new_text, encoding="utf-8")
             rescored += len(out)
-        if k % 25 == 0 or k == len(files):
-            print(f"[rescore] 进度 {k}/{len(files)} 文件 | 累计 {total} 条 | "
+        done[p.name] = len(out)
+        save_state(state)   # 每个文件完成即落盘，中断不丢进度
+        if k % 25 == 0 or k == len(todo):
+            print(f"[rescore] 进度 {k}/{len(todo)} 文件 | 累计 {total} 条 | "
                   f"重写 {rescored} 条", flush=True)
 
     print(f"[rescore] 完成：{total} 条 / 重写 {rescored} 条")

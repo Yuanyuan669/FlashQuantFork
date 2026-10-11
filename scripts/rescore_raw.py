@@ -64,7 +64,7 @@ def main() -> int:
     raw_dir = ROOT / "news" / "raw"
     files = sorted(raw_dir.glob("*.jsonl"))
     if args.days > 0:
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         from zoneinfo import ZoneInfo
         today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
         keep = {(today - timedelta(days=o)).strftime("%Y%m%d") for o in range(args.days)}
@@ -111,6 +111,29 @@ def main() -> int:
     save_history(h)
     print(f"[rescore] 情绪历史已重建：市场 {len(h.get('market', {}))} 天 / "
           f"个股 {len(h.get('symbols', {}))} 只")
+
+    # 结果上传：commit + push（需 Pi 已配置 GitHub SSH key；失败不影响本地结果，重跑只差上传）
+    import subprocess
+    if not (ROOT / ".git").exists():
+        print("[rescore] 非 git 仓库，跳过上传")
+        return 0
+    for args in (("config", "user.name", "flashquant-rescore"),
+                 ("config", "user.email", "flashquant@rescore.local")):
+        subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True)
+    subprocess.run(["git", "-C", str(ROOT), "add", "news/"], capture_output=True)
+    stamp = datetime.now(TZ).strftime("%F %H:%M")
+    c = subprocess.run(["git", "-C", str(ROOT), "commit", "-m",
+                        f"rescore: raw rescored with current backend ({stamp})"],
+                       capture_output=True, text=True)
+    if c.returncode != 0:
+        print("[rescore] 无变更需要提交")
+        return 0
+    subprocess.run(["git", "-C", str(ROOT), "pull", "--rebase", "--autostash",
+                    "origin", "master"], capture_output=True)
+    push = subprocess.run(["git", "-C", str(ROOT), "push", "origin", "master"],
+                          capture_output=True, text=True)
+    print("[rescore] git push:", "OK" if push.returncode == 0
+          else f"失败（本地结果已保留）：{(push.stderr or '').strip()[:150]}")
     return 0
 
 

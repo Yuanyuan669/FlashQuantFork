@@ -86,6 +86,8 @@
 
 1. **Pi（自托管 runner）只跑日常增量**：每天 4 轮 monitor（各几百条，含少量英文 FinBERT），单轮几分钟——Pi 扛得住；
 2. **全量/重打分类任务 → Windows（或更强机器）**：装好 transformers + torch（CPU 版），跑完 git push；
+   - 实测基准（2026-10-11，benchmark_finbert.py，200 条样本）：Windows AMD64 **15.1 条/秒** vs Pi RK3588 **2.84 条/秒**（5.3 倍差）
+   - **分派阈值：单批 > 1000 条英文 → 必须 Windows**（Pi 2.2-2.8 条/秒，OOM + 超时风险都在长任务上）
 3. **单一写入方**：news/ 只由统一工作流（flashquant.yml，mode 参数区分 monitor/daily）提交，news-aggregator.yml 已退役；
 4. **cron-job.org 外部触发**：GitHub schedule 对 fork 仓库不可靠（实测延迟 55 分钟~5.9 小时）；workflow 改名后 cron-job 的 dispatch URL 要同步更新；
 5. **新闻数据再分发**：公开仓库含媒体快讯正文属灰色地带——个人研究规模可接受（上游先例），仓库若转向展示/商业化，先把 news/ 数据抽到私有仓库。

@@ -32,16 +32,18 @@ TZ = ZoneInfo("Asia/Shanghai")
 from news_aggregator.impact import compute_impact  # noqa: E402
 from news_aggregator.sentiment import configure_backend  # noqa: E402
 
-STATE_PATH = ROOT / "news" / "rescore_state.json"
+def state_path(shard: str) -> Path:
+    """分片各自的断点状态文件（多机并行互不覆盖）。"""
+    return ROOT / "news" / (f"rescore_state{shard}.json" if shard else "rescore_state.json")
 
 
-def load_state(backend: str) -> dict:
+def load_state(backend: str, path: Path) -> dict:
     """断点续跑：记录后端名 + 已完成的日文件。
 
     state 里记录 backend：换后端（如词典->FinBERT）后旧状态作废全量重算，
     避免不同量纲的打分结果互相覆盖。
     """
-    p = STATE_PATH
+    p = path
     if p.exists():
         try:
             state = json.loads(p.read_text(encoding="utf-8"))
@@ -54,16 +56,25 @@ def load_state(backend: str) -> dict:
     return {"backend": backend, "done": {}}
 
 
-def save_state(state: dict) -> None:
-    tmp = STATE_PATH.with_suffix(".json.tmp")
+def save_state(state: dict, path: Path) -> None:
+    tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(STATE_PATH)
+    tmp.replace(path)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="raw 全量重打分")
     ap.add_argument("--days", type=int, default=0, help="只处理近 N 天（0=全量）")
+    ap.add_argument("--shard", default="", metavar="I:N",
+                    help="多机并行分片：本机只处理待办列表中 index%%n==i 的文件，状态文件按分片隔离")
     args = ap.parse_args()
+
+    shard_i, shard_n = 0, 1
+    if args.shard:
+        i, _, n = args.shard.partition(":")
+        shard_i, shard_n = int(i), int(n or 1)
+    shard_tag = f"_shard{shard_i}of{shard_n}" if shard_n > 1 else ""
+    state_p = state_path(shard_tag)
 
     cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
     backend_name = str((cfg.get("sentiment") or {}).get("backend") or "lexicon")
@@ -112,7 +123,7 @@ def main() -> int:
                 continue
         if not items:
             done[p.name] = 0
-            save_state(state)
+            save_state(state, state_p)
             continue
         total += len(items)
         out = compute_impact(items, themes, weights, window, burst_cap)
@@ -121,7 +132,7 @@ def main() -> int:
             p.write_text(new_text, encoding="utf-8")
             rescored += len(out)
         done[p.name] = len(out)
-        save_state(state)   # 每个文件完成即落盘，中断不丢进度
+        save_state(state, state_p)   # 每个文件完成即落盘，中断不丢进度
         if k % 25 == 0 or k == len(todo):
             print(f"[rescore] 进度 {k}/{len(todo)} 文件 | 累计 {total} 条 | "
                   f"重写 {rescored} 条", flush=True)

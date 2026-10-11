@@ -14,6 +14,11 @@ on:
   #   - cron: "5 7 * * 1-5"
   #   - cron: "30 13 * * 1-5"
   workflow_dispatch:
+    inputs:
+      rescore:
+        description: "重打分 raw 全量（FinBERT/词典）+ 重建情绪历史（一次性维护操作）"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -71,7 +76,22 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
 
+      - name: Rescore raw (one-off)
+        if: ${{ inputs.rescore == true }}
+        timeout-minutes: 40
+        run: |
+          "$VENV/bin/python" scripts/rescore_raw.py
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add news/
+          if ! git diff --cached --quiet; then
+            git commit -m "rescore: raw rescored with current backend ($(date '+%F %H:%M'))"
+            git pull --rebase origin master
+            git push
+          fi
+
       - name: Commit news state
+        if: ${{ inputs.rescore != true }}
         run: |
           # seen.json / raw / alerts 必须持久化：跨 run 去重与告警状态依赖它们
           git config user.name "github-actions[bot]"

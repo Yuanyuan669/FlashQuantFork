@@ -1,30 +1,43 @@
 """Dashboard 构建器测试：数据收集容错、HTML 渲染与 XSS 转义。"""
 
 import json
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from news_aggregator.dashboard import build, collect, render, render_fresh
 
+TZ = ZoneInfo("Asia/Shanghai")
 
-def _make_news(tmp_path, items):
+
+def _today(offset: int = 0) -> str:
+    return (datetime.now(TZ) - timedelta(days=offset)).strftime("%Y-%m-%d")
+
+
+def _make_news(tmp_path, items, offset: int = 0):
     raw = tmp_path / "raw"
-    raw.mkdir(parents=True)
-    (raw / "20261003.jsonl").write_text(
+    raw.mkdir(parents=True, exist_ok=True)
+    fname = (datetime.now(TZ) - timedelta(days=offset)).strftime("%Y%m%d") + ".jsonl"
+    (raw / fname).write_text(
         "\n".join(json.dumps(it, ensure_ascii=False) for it in items),
         encoding="utf-8")
 
 
+def _item(i, offset=0):
+    d = _today(offset)
+    return {"id": str(i), "ts": f"{d}T10:00:00+08:00", "date": d,
+            "source": "财联社", "title": f"标题{i}", "content": "", "url": "",
+            "symbols": [], "sentiment": 0.5, "impact": 0.5,
+            "impact_parts": {"theme": 0.0}}
+
+
 def test_collect_counts_and_sorting(tmp_path):
-    items = [
-        {"id": "1", "ts": "2026-10-03T10:00:00+08:00", "date": "2026-10-03",
-         "source": "财联社", "title": "利好政策出台", "content": "", "url": "",
-         "symbols": ["600519"], "sentiment": 0.8, "impact": 0.9,
-         "impact_parts": {"theme": 0.5}},
-        {"id": "2", "ts": "2026-10-03T09:00:00+08:00", "date": "2026-10-03",
-         "source": "Reuters", "title": "rate hike worry", "content": "", "url": "",
-         "symbols": [], "sentiment": -0.5, "impact": 0.4,
-         "impact_parts": {"theme": 0.0}},
-    ]
-    _make_news(tmp_path, items)
+    it1 = _item(1)
+    it1.update({"title": "利好政策出台", "sentiment": 0.8, "impact": 0.9,
+                "symbols": ["600519"], "impact_parts": {"theme": 0.5}})
+    it2 = _item(2)
+    it2.update({"source": "Reuters", "title": "rate hike worry", "sentiment": -0.5,
+                "impact": 0.4, "impact_parts": {"theme": 0.0}})
+    _make_news(tmp_path, [it1, it2])
     data = collect(tmp_path, days=7, top=10)
     assert data["kpi"]["total"] == 2
     assert data["kpi"]["themed"] == 1
@@ -36,8 +49,8 @@ def test_collect_counts_and_sorting(tmp_path):
 def test_collect_tolerates_bad_lines_and_missing_files(tmp_path):
     raw = tmp_path / "raw"
     raw.mkdir()
-    (raw / "20261003.jsonl").write_text(
-        '{"id":"1","date":"2026-10-03"}\n{broken json\n\n', encoding="utf-8")
+    (raw / f"{_today()}.jsonl".replace("-", "")).write_text(
+        '{"id":"1","date":"' + _today() + '"}\n{broken json\n\n', encoding="utf-8")
     data = collect(tmp_path, days=7, top=10)
     assert data["kpi"]["total"] == 1
     assert data["alerts"] == []  # alerts.jsonl 不存在不报错
@@ -47,7 +60,7 @@ def test_collect_tolerates_bad_lines_and_missing_files(tmp_path):
 def test_render_escapes_payload_and_hides_script_break(tmp_path):
     """标题里的 </script> 与引号不得破坏 JSON payload 或注入 HTML。"""
     items = [{
-        "id": "1", "ts": "2026-10-03T10:00:00+08:00", "date": "2026-10-03",
+        "id": "1", "ts": f"{_today()}T10:00:00+08:00", "date": _today(),
         "source": "x", "title": '</script><img src=x onerror=alert(1)>',
         "content": "", "url": "", "symbols": [], "sentiment": 0.0,
         "impact": 0.5, "impact_parts": {"theme": 0.0},

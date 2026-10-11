@@ -265,6 +265,7 @@ svg text{fill:var(--dim);font-size:10px}
 <div class="wrap">
   <h1>⚡ FlashQuant · 舆情 Dashboard</h1>
   <div class="meta">生成时间 <span id="gen"></span> ｜ 数据区间 <span id="range"></span>（近 <span id="days"></span> 天）｜ 刷新：<code>python scripts/generate_dashboard.py</code></div>
+  <div id="warnbar"></div>
 
   <div class="cards" id="cards"></div>
 
@@ -317,6 +318,13 @@ svg text{fill:var(--dim);font-size:10px}
 const DATA = JSON.parse(document.getElementById('payload').textContent);
 const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = (v,d=3) => (v>0?'+':'')+Number(v).toFixed(d);
+
+// 预警横幅（payload.warnings）
+const warns = DATA.warnings || [];
+if (warns.length) {
+  document.getElementById('warnbar').innerHTML = warns.map(w =>
+    `<div style="background:#5c1a1a;color:#f85149;padding:8px 12px;border-radius:6px;margin-bottom:8px">⚠ ${esc(w)}</div>`).join('');
+}
 
 // KPI
 const k = DATA.kpi;

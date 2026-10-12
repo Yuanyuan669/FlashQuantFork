@@ -2139,3 +2139,11 @@
 {"news_id": "594f594c49597881", "ts": "2026-10-12T11:39:19", "date": "2026-10-11", "theme": "AI/算力", "event_type": "", "impact": 0.5602, "score": -0.1609, "source": "Finnhub", "symbols": ["TSLA"]}
 {"news_id": "339496a5b52246ab", "ts": "2026-10-12T11:39:22", "date": "2026-10-11", "theme": "创新药/疫苗", "event_type": "", "impact": 0.5589, "score": 0.1557, "source": "Finnhub", "symbols": ["NVDA"]}
 {"news_id": "9c05d7b466fbc6be", "ts": "2026-10-12T11:39:23", "date": "2026-10-11", "theme": "AI/算力", "event_type": "", "impact": 0.5579, "score": 0.1515, "source": "Finnhub", "symbols": ["AMZN"]}
+{"news_id": "c9cd6a5143a86091", "ts": "2026-10-12T15:07:46", "date": "2026-10-12", "theme": "券商/金融", "event_type": "增持回购", "impact": 0.6875, "score": 0.75, "source": "个股新闻", "symbols": ["601318"]}
+{"news_id": "0d977f5d9b29af6f", "ts": "2026-10-12T15:07:46", "date": "2026-10-12", "theme": "AI/算力", "event_type": "", "impact": 0.6649, "score": -0.5796, "source": "Finnhub", "symbols": ["NVDA"]}
+{"news_id": "a242d3e519edfb63", "ts": "2026-10-12T15:07:47", "date": "2026-10-12", "theme": "创新药/疫苗、财报/公告", "event_type": "", "impact": 0.6628, "score": -0.5712, "source": "Finnhub", "symbols": ["JNJ"]}
+{"news_id": "00bd3425416b85c6", "ts": "2026-10-12T15:07:47", "date": "2026-10-12", "theme": "AI/算力", "event_type": "", "impact": 0.6565, "score": 0.5461, "source": "Finnhub", "symbols": ["AMZN"]}
+{"news_id": "e6c6595d8c019a90", "ts": "2026-10-12T15:07:48", "date": "2026-10-12", "theme": "AI/算力", "event_type": "", "impact": 0.6492, "score": 0.5166, "source": "Finnhub", "symbols": ["AAPL"]}
+{"news_id": "a853513954264553", "ts": "2026-10-12T15:07:48", "date": "2026-10-12", "theme": "券商/金融", "event_type": "", "impact": 0.625, "score": 0.5, "source": "个股新闻", "symbols": ["601398"]}
+{"news_id": "fabe90a09fda3366", "ts": "2026-10-12T15:07:49", "date": "2026-10-12", "theme": "半导体/芯片、AI/算力、财报/公告", "event_type": "", "impact": 0.5749, "score": 0.2197, "source": "Finnhub", "symbols": ["AAPL"]}
+{"news_id": "28642ddb84c9d04c", "ts": "2026-10-12T15:07:49", "date": "2026-10-12", "theme": "AI/算力、财报/公告", "event_type": "", "impact": 0.5623, "score": -0.1692, "source": "Finnhub", "symbols": ["AMZN"]}

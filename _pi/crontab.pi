@@ -1,0 +1,12 @@
+# FlashQuant Pi 本地定时（替代 cron-job.org -> GitHub dispatch 链路）
+# 环境：Asia/Shanghai；工作日 1-5
+# 用法：crontab crontab.pi
+
+# monitor 四时点（盘前 08:45 / 午间 11:35 / 收盘 15:05 / 美股开盘 21:30）
+45 8 * * 1-5  /home/orangepi/flashquant/scripts/cron_monitor.sh >> /home/orangepi/monitor_cron.log 2>&1
+35 11 * * 1-5 /home/orangepi/flashquant/scripts/cron_monitor.sh >> /home/orangepi/monitor_cron.log 2>&1
+5 15 * * 1-5  /home/orangepi/flashquant/scripts/cron_monitor.sh >> /home/orangepi/monitor_cron.log 2>&1
+30 21 * * 1-5 /home/orangepi/flashquant/scripts/cron_monitor.sh >> /home/orangepi/monitor_cron.log 2>&1
+
+# 收盘日报 18:30
+30 18 * * 1-5 /home/orangepi/flashquant/scripts/cron_daily.sh >> /home/orangepi/monitor_cron.log 2>&1

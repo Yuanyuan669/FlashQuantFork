@@ -310,8 +310,10 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     en_vol = sum(1 for it in all_items if it.get("lang") == "en")
     en_warn = int((cfg.get("monitor") or {}).get("en_volume_warn", 1000))
     if en_vol > en_warn:
+        # 邮件+横幅由 TM 侧摄取负责（data.notify + payload.warnings）；
+        # 这里只留日志，避免同一预警走企微打扰用户
         print(f"[monitor] ⚠ 本轮英文条目 {en_vol} 条 > {en_warn} 阈值——"
-              f"按分派策略应转 Windows 执行（Pi 仅适合 ≤500 条的日常增量）", flush=True)
+              f"批量重打分如需执行应转 Windows（Pi 仅适合日常增量）", flush=True)
     # 去重
     uniq = {}
     for it in all_items:

@@ -2093,3 +2093,11 @@
 {"news_id": "50b85a32e8bbddca", "ts": "2026-10-11T15:08:19", "date": "2026-10-02", "theme": "AI/算力", "event_type": "", "impact": 0.465, "score": 0.6599, "source": "半导体行业", "symbols": []}
 {"news_id": "4ce99ca9c67803da", "ts": "2026-10-11T15:08:21", "date": "2026-10-11", "theme": "机器人", "event_type": "", "impact": 0.46, "score": 0.5, "source": "东财全球资讯", "symbols": []}
 {"news_id": "ab4f9b1962d3d218", "ts": "2026-10-11T15:08:21", "date": "2026-10-11", "theme": "机器人", "event_type": "", "impact": 0.45, "score": 0.5, "source": "新浪7x24", "symbols": []}
+{"news_id": "4ee856f056c5c13f", "ts": "2026-10-12T08:48:14", "date": "2026-10-11", "theme": "财报/公告", "event_type": "财报预增", "impact": 0.6875, "score": 0.75, "source": "个股新闻", "symbols": ["688099"]}
+{"news_id": "294554cd9e0823b2", "ts": "2026-10-12T08:48:14", "date": "2026-10-12", "theme": "财报/公告", "event_type": "增持回购", "impact": 0.6667, "score": 0.6667, "source": "个股新闻", "symbols": ["603288"]}
+{"news_id": "66e57f11edb398ad", "ts": "2026-10-12T08:48:14", "date": "2026-10-11", "theme": "AI/算力、财报/公告", "event_type": "处罚诉讼", "impact": 0.6667, "score": -0.6667, "source": "个股新闻", "symbols": ["002714"]}
+{"news_id": "264e7f14d1c4db1d", "ts": "2026-10-12T08:48:14", "date": "2026-10-11", "theme": "财报/公告", "event_type": "", "impact": 0.625, "score": -0.5, "source": "个股新闻", "symbols": ["002714"]}
+{"news_id": "f6a8f65ff7fb2023", "ts": "2026-10-12T08:48:14", "date": "2026-10-11", "theme": "创新药/疫苗、财报/公告", "event_type": "", "impact": 0.625, "score": 0.5, "source": "个股新闻", "symbols": ["688506"]}
+{"news_id": "5f8f7bcf85761600", "ts": "2026-10-12T08:48:14", "date": "2026-10-11", "theme": "创新药/疫苗、财报/公告", "event_type": "", "impact": 0.625, "score": 0.5, "source": "个股新闻", "symbols": ["688506"]}
+{"news_id": "c7f8de1ac0530292", "ts": "2026-10-12T08:48:14", "date": "2026-10-12", "theme": "创新药/疫苗、半导体/芯片、AI/算力、财报/公告", "event_type": "", "impact": 0.625, "score": 0.5, "source": "个股新闻", "symbols": ["688506"]}
+{"news_id": "97288d52ee62275a", "ts": "2026-10-12T08:48:14", "date": "2026-10-11", "theme": "财报/公告", "event_type": "财报预增", "impact": 0.6, "score": -0.4, "source": "个股新闻", "symbols": ["002714"]}

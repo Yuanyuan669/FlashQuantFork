@@ -126,7 +126,24 @@ def collect(news_dir: Path, days: int = 7, top: int = 100) -> dict:
 
     # 高影响新闻
     ranked = sorted(items, key=lambda it: (float(it.get("impact") or 0),
-                                           it.get("ts") or ""), reverse=True)[:top]
+                                           it.get("ts") or ""), reverse=True)
+    top_set = ranked[:top]
+
+    # 每源保底：窗口内有产出的来源至少 3 条进入候选池（来源筛选的完备性——
+    # 不然低量/低分源在筛选器里永远缺席）。补进的条目排尾部。
+    top_ids = {it.get("id") for it in top_set}
+    by_src_best = {}
+    for it in ranked:
+        s = it.get("source") or "未知"
+        by_src_best.setdefault(s, []).append(it)
+    backup = []
+    for s, lst in by_src_best.items():
+        have = sum(1 for it in top_set if (it.get("source") or "未知") == s)
+        for it in lst[:3]:
+            if it.get("id") not in top_ids and have < 3:
+                backup.append(it)
+                have += 1
+    ranked_final = list(top_set) + backup
 
     _SCHEME = re.compile(r"https?:?//", re.I)
 
@@ -153,7 +170,7 @@ def collect(news_dir: Path, days: int = 7, top: int = 100) -> dict:
         "symbols": (it.get("symbols") or [])[:6],
         "theme": (it.get("impact_parts") or {}).get("theme", 0.0) > 0,
         "lang": it.get("lang") or "",
-    } for it in ranked]
+    } for it in ranked_final]
 
     # 日度情绪：优先 sentiment_history.json（monitor 每轮增量更新，最实时）；
     # daily_sentiment.json 仅由 run.py 日聚合刷新，作回退

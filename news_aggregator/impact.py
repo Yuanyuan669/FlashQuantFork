@@ -174,10 +174,15 @@ def compute_impact(items: list, themes: list | None = None,
         # relevance 三档：有标的 1.0 / 命中主题 0.5 / 都没中 0.2。
         # 0.5 档依据 predictive_power 实测（主题命中事件次日超额为正）：
         # 无代码标签的全市场大事件不再是 0.2 的"无关"。
+        # 热度注意量：带 rank 的条目（社媒热搜）用榜单名次构造强度下限——
+        # 社会关注度本身就是客观信号（rank1 ≈ 0.65，衰减到 rank50 ≈ 0.17），
+        # 与情绪强度取 max（有情绪用情绪，无情绪用注意力）。
+        rank = it.get("rank")
+        hot_norm = max(0.05, 0.65 / (rank ** 0.3)) if isinstance(rank, (int, float)) and rank else 0.0
         parts = {
             "authority": authority(it.get("source")),
             "burst": min(1.0, cnt / max(1, burst_cap)),
-            "intensity": abs(sc),
+            "intensity": max(abs(sc), hot_norm),
             "relevance": 1.0 if it.get("symbols")
                          else (0.5 if matched else 0.2),
             "theme": min(1.0, theme_w),

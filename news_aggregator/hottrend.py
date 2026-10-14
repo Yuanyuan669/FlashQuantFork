@@ -30,7 +30,7 @@ def _get(url: str, headers: dict | None = None, timeout: int = 10):
     return r.json()
 
 
-def _item(platform_cn: str, title: str, hot: str = "", url: str = "") -> dict | None:
+def _item(platform_cn: str, title: str, hot: str = "", url: str = "", rank: int = 0) -> dict | None:
     title = (title or "").strip()
     if not title:
         return None
@@ -52,7 +52,7 @@ def _item(platform_cn: str, title: str, hot: str = "", url: str = "") -> dict | 
         "kind": "news",
         "ticker": "",
         "politician": "",
-        "rank": None,
+        "rank": int(rank) if rank else None,       # 平台榜单名次 -> impact 的注意力分量
     }
 
 
@@ -63,13 +63,13 @@ def fetch_weibo() -> list:
     if data.get("ok") != 1:
         return []
     out = []
-    for row in (data.get("data") or {}).get("realtime") or []:
+    for rank_i, row in enumerate((data.get("data") or {}).get("realtime") or [], 1):
         word = str(row.get("word") or "").strip()
         if not word:
             continue
         note = str(row.get("note") or "").strip()
         hot = note or str(row.get("num") or "")
-        it = _item("微博", word, hot=hot,
+        it = _item("微博", word, hot=hot, rank=rank_i,
                    url=f"https://s.weibo.com/weibo?q=%23{word}%23")
         if it:
             out.append(it)
@@ -81,13 +81,13 @@ def fetch_baidu() -> list:
     data = _get("https://top.baidu.com/api/board?platform=wise&tab=realtime",
                 headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)"})
     out = []
-    for card in (data.get("data") or {}).get("cards") or []:
-        for group in card.get("content") or []:
-            for row in group.get("content") or []:
+    for _ci, card in enumerate((data.get("data") or {}).get("cards") or [], 1):
+        for _gi, group in enumerate(card.get("content") or [], 1):
+            for row_i, row in enumerate(group.get("content") or [], 1):
                 word = str(row.get("word") or "").strip()
                 if not word:
                     continue
-                it = _item("百度", word, url=str(row.get("url") or ""))
+                it = _item("百度", word, url=str(row.get("url") or ""), rank=row_i)
                 if it:
                     out.append(it)
     return out
@@ -105,7 +105,7 @@ def fetch_zhihu() -> list:
             continue
         metrics = ((target.get("metrics_area") or {}).get("text") or "").strip()
         url = ((target.get("link") or {}).get("url") or "")
-        it = _item("知乎", title, hot=metrics, url=url)
+        it = _item("知乎", title, hot=metrics, url=url, rank=rank_i)
         if it:
             out.append(it)
     return out
@@ -115,11 +115,11 @@ def fetch_douyin() -> list:
     """抖音热点：data.word_list[] -> word/hot_value。"""
     data = _get("https://www.douyin.com/aweme/v1/web/hot/search/list/")
     out = []
-    for row in (data.get("data") or {}).get("word_list") or []:
+    for rank_i, row in enumerate((data.get("data") or {}).get("word_list") or [], 1):
         word = str(row.get("word") or "").strip()
         if not word:
             continue
-        it = _item("抖音", word, hot=str(row.get("hot_value") or ""))
+        it = _item("抖音", word, hot=str(row.get("hot_value") or ""), rank=rank_i)
         if it:
             out.append(it)
     return out
@@ -135,7 +135,7 @@ def fetch_toutiao() -> list:
             continue
         cid = str(row.get("ClusterIdStr") or "")
         url = f"https://www.toutiao.com/trending/{cid}/" if cid else ""
-        it = _item("头条", title, hot=str(row.get("HotValue") or ""), url=url)
+        it = _item("头条", title, hot=str(row.get("HotValue") or ""), url=url, rank=rank_i)
         if it:
             out.append(it)
     return out
@@ -145,11 +145,11 @@ def fetch_bilibili() -> list:
     """B站热搜：list[] -> keyword/show_name。"""
     data = _get("https://s.search.bilibili.com/main/hotword?limit=50")
     out = []
-    for row in data.get("list") or []:
+    for rank_i, row in enumerate(data.get("list") or [], 1):
         word = str(row.get("show_name") or row.get("keyword") or "").strip()
         if not word:
             continue
-        it = _item("B站", word)
+        it = _item("B站", word, rank=rank_i)
         if it:
             out.append(it)
     return out

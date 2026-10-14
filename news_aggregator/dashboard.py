@@ -293,7 +293,8 @@ svg text{fill:var(--dim);font-size:10px}
   <div class="panel">
     <h2>高影响新闻 <small>影响分 Top 切片（展示容量 300，全量在归档/TM 库）</small></h2>
     <div class="controls">
-      <select id="tn"><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option><option value="99999">全部</option></select><input type="text" id="q" placeholder="搜索标题...">
+      <select id="tn"><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option><option value="99999">全部</option></select>
+      <label>每源限额 <select id="srccap"><option value="0">不限</option><option value="20" selected>20 条</option><option value="10">10 条</option><option value="5">5 条</option></select></label><input type="text" id="q" placeholder="搜索标题...">
       <select id="src"><option value="">全部来源</option></select>
       <select id="sort">
         <option value="impact">按影响分</option>
@@ -436,6 +437,15 @@ function renderNews(){
   else if(sort==='sent') rows=rows.slice().sort((a,b)=>b.sentiment-a.sentiment);
   const tn=parseInt(document.getElementById('tn').value,10)||rows.length;
   rows=rows.slice(0,tn);
+  // 每源限额：防止单一高量渠道霸占整个 top 榜（cap 设 0 = 关闭）
+  const cap=parseInt(document.getElementById('srccap').value,10)||0;
+  if(cap){
+    const cnt={};
+    rows=rows.slice().sort((a,b)=>b.impact-a.impact).filter(n=>{
+      cnt[n.source]=(cnt[n.source]||0)+1;
+      return cnt[n.source]<=cap;
+    });
+  }
   document.getElementById('newstable').innerHTML = rows.length
     ? `<table><tr><th>时间</th><th>来源</th><th>标题</th><th>情绪</th><th>影响分</th><th>标签</th></tr>`+
       rows.map(n=>`<tr><td style="white-space:nowrap">${esc(n.ts)}</td><td style="white-space:nowrap">${esc(n.source)}</td>`+
@@ -446,7 +456,7 @@ function renderNews(){
       '</table>'
     : '<div class="empty">无匹配新闻</div>';
 }
-['q','src','sort','imin','onlyth','tn'].forEach(id=>{
+['q','src','sort','imin','onlyth','tn','srccap'].forEach(id=>{
   const el=document.getElementById(id);
   el.addEventListener(el.type==='range'?'input':'change',renderNews);
   el.addEventListener('input',renderNews);

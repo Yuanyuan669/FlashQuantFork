@@ -137,11 +137,14 @@ def _burst_counts(items: list, epochs: list, window_sec: int) -> list:
 def compute_impact(items: list, themes: list | None = None,
                    weights: dict | None = None,
                    window_minutes: int = WINDOW_MINUTES,
-                   burst_cap: int = BURST_CAP) -> list:
+                   burst_cap: int = BURST_CAP,
+                   use_stored_scores: bool = False) -> list:
     """为 items 计算影响分并降序返回（原地写入 impact / impact_parts）。
 
     themes: 主题列表（同 themes.yaml 的 themes 数组），可为 None 表示不做主题匹配。
     weights: 覆盖 DEFAULT_WEIGHTS。
+    use_stored_scores: 跳过打分、复用条目已存的 sentiment（重加权模式：
+    改权重/relevance 公式后秒-分钟级重算，无需再跑模型）。
     """
     w = dict(DEFAULT_WEIGHTS)
     if weights:
@@ -156,7 +159,10 @@ def compute_impact(items: list, themes: list | None = None,
     counts = _burst_counts(items, epochs, window_sec)
 
     texts = [f"{it.get('title', '')} {it.get('content', '')}" for it in items]
-    scores = score_batch(texts)
+    if use_stored_scores:
+        scores = [float(it.get("sentiment") or 0.0) for it in items]
+    else:
+        scores = score_batch(texts)
 
     for idx, (it, cnt) in enumerate(zip(items, counts)):
         text = texts[idx]
@@ -165,11 +171,15 @@ def compute_impact(items: list, themes: list | None = None,
         theme_w = 0.0
         if matched:
             theme_w = max((th.get("weight") or DEFAULT_THEME_WEIGHT) for th, _ in matched)
+        # relevance 三档：有标的 1.0 / 命中主题 0.5 / 都没中 0.2。
+        # 0.5 档依据 predictive_power 实测（主题命中事件次日超额为正）：
+        # 无代码标签的全市场大事件不再是 0.2 的"无关"。
         parts = {
             "authority": authority(it.get("source")),
             "burst": min(1.0, cnt / max(1, burst_cap)),
             "intensity": abs(sc),
-            "relevance": 1.0 if it.get("symbols") else 0.2,
+            "relevance": 1.0 if it.get("symbols")
+                         else (0.5 if matched else 0.2),
             "theme": min(1.0, theme_w),
         }
         impact = sum(w[k] * parts[k] for k in parts)

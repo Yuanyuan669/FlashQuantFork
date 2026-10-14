@@ -67,6 +67,8 @@ def main() -> int:
     ap.add_argument("--days", type=int, default=0, help="只处理近 N 天（0=全量）")
     ap.add_argument("--shard", default="", metavar="I:N",
                     help="多机并行分片：本机只处理待办列表中 index%%n==i 的文件，状态文件按分片隔离")
+    ap.add_argument("--reweight", action="store_true",
+                    help="仅重加权（复用已存情绪分，不跑模型；改权重/relevance 公式后用）")
     args = ap.parse_args()
 
     shard_i, shard_n = 0, 1
@@ -78,7 +80,12 @@ def main() -> int:
 
     cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
     backend_name = str((cfg.get("sentiment") or {}).get("backend") or "lexicon")
-    configure_backend(cfg)
+
+    # 重加权模式：改权重/relevance 公式后用——复用已存情绪分，不加载模型、秒-分钟级
+    reweight = getattr(args, "reweight", False)
+    if reweight:
+        backend_name = "reweight(uses stored scores)"
+    configure_backend(cfg if not reweight else {})
 
     # 重打分场景禁止静默降级：配置了 FinBERT 但环境不可用 -> 硬报错。
     # （降级会用词典覆盖 FinBERT 结果，属于数据污染——2026-10-11 实证）
@@ -126,7 +133,8 @@ def main() -> int:
             save_state(state, state_p)
             continue
         total += len(items)
-        out = compute_impact(items, themes, weights, window, burst_cap)
+        out = compute_impact(items, themes, weights, window, burst_cap,
+                             use_stored_scores=reweight)
         new_text = "\n".join(json.dumps(it, ensure_ascii=False) for it in out) + "\n"
         if p.read_text(encoding="utf-8", errors="replace") != new_text:
             p.write_text(new_text, encoding="utf-8")

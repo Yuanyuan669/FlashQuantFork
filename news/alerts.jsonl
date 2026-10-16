@@ -4849,3 +4849,15 @@
 {"news_id": "ca9dc29639eaabbb", "ts": "2026-10-16T15:08:18", "date": "2026-10-16", "theme": "创新药/疫苗、军工", "event_type": "", "impact": 0.4714, "score": -0.2857, "source": "华尔街见闻", "symbols": []}
 {"news_id": "dd0fcd4a5ca63cda", "ts": "2026-10-16T15:08:20", "date": "2026-10-16", "theme": "原油/商品", "event_type": "", "impact": 0.4627, "score": 0.1709, "source": "彭博", "symbols": []}
 {"news_id": "8c3c96b06fec9591", "ts": "2026-10-16T15:08:20", "date": "2026-10-16", "theme": "美联储利率、国会/听证会、央行/货币政策", "event_type": "", "impact": 0.4625, "score": 0.25, "source": "华尔街见闻", "symbols": []}
+{"news_id": "3c934ed24ec7f13d", "ts": "2026-10-16T21:36:33", "date": "2026-10-16", "theme": "财报/公告", "event_type": "财报预增", "impact": 0.7083, "score": 0.8333, "source": "个股新闻", "symbols": ["002415"]}
+{"news_id": "7c71d19c547a8623", "ts": "2026-10-16T21:36:33", "date": "2026-10-16", "theme": "财报/公告", "event_type": "增持回购", "impact": 0.7083, "score": 0.8333, "source": "个股新闻", "symbols": ["300757"]}
+{"news_id": "9097825be9f9ada8", "ts": "2026-10-16T21:36:33", "date": "2026-10-16", "theme": "财报/公告", "event_type": "增持回购", "impact": 0.7, "score": 0.8, "source": "个股新闻", "symbols": ["300757"]}
+{"news_id": "119d3f274db87586", "ts": "2026-10-16T21:36:33", "date": "2026-10-16", "theme": "财报/公告", "event_type": "财报预增", "impact": 0.6875, "score": 0.75, "source": "个股新闻", "symbols": ["002415"]}
+{"news_id": "90cfd6c82540c4b5", "ts": "2026-10-16T21:36:33", "date": "2026-10-16", "theme": "财报/公告", "event_type": "中标订单", "impact": 0.6875, "score": 0.75, "source": "个股新闻", "symbols": ["600048"]}
+{"news_id": "1326121da3a68b9c", "ts": "2026-10-16T21:36:33", "date": "2026-10-16", "theme": "财报/公告", "event_type": "中标订单", "impact": 0.6875, "score": 0.75, "source": "个股新闻", "symbols": ["600048"]}
+{"news_id": "c34cd3f7c2d4a6ef", "ts": "2026-10-16T21:36:33", "date": "2026-10-16", "theme": "财报/公告", "event_type": "增持回购", "impact": 0.6875, "score": 0.75, "source": "个股新闻", "symbols": ["000333"]}
+{"news_id": "646e972ad844f2c7", "ts": "2026-10-16T21:36:33", "date": "2026-10-16", "theme": "财报/公告", "event_type": "增持回购", "impact": 0.6875, "score": 0.75, "source": "个股新闻", "symbols": ["300757"]}
+{"news_id": "436a9c3bc24f3082", "ts": "2026-10-16T21:36:33", "date": "2026-10-16", "theme": "财报/公告", "event_type": "财报预增", "impact": 0.6667, "score": 0.6667, "source": "个股新闻", "symbols": ["002415"]}
+{"news_id": "e5244b411f67d2b2", "ts": "2026-10-16T21:36:33", "date": "2026-10-16", "theme": "财报/公告", "event_type": "增持回购", "impact": 0.6667, "score": 0.6667, "source": "个股新闻", "symbols": ["000333"]}
+{"news_id": "b80f0ca6bcd2bf26", "ts": "2026-10-16T21:36:34", "date": "2026-10-16", "theme": "财报/公告", "event_type": "", "impact": 0.6622, "score": -0.5689, "source": "Finnhub", "symbols": ["DIS"]}
+{"news_id": "b0f75f1b3dac76eb", "ts": "2026-10-16T21:36:34", "date": "2026-10-16", "theme": "券商/金融", "event_type": "", "impact": 0.625, "score": -0.5, "source": "个股新闻", "symbols": ["603259"]}

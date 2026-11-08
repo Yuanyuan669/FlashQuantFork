@@ -25,6 +25,7 @@ sys.path.insert(0, str(ROOT))
 from news_aggregator.fetchers import SOURCES, fetch_symbol_news, load_news_universe, filter_recent, apply_primary_keys, load_env_file  # noqa: E402
 from news_aggregator.sentiment import score_text, configure_backend  # noqa: E402
 from news_aggregator.tagger import tag  # noqa: E402
+from news_aggregator.entity_link import link_items, stats_line  # noqa: E402
 from news_aggregator.push import push_alert  # noqa: E402
 from news_aggregator.impact import compute_impact, DEFAULT_WEIGHTS  # noqa: E402
 
@@ -372,6 +373,13 @@ def main() -> int:
     items = dedupe(items)
     items = filter_recent(items, days=30)
     items = tag(items, cfg["symbols"])
+    # 实体链接：config.symbols 只有 5 只，市场级中文快讯靠这一步归属到个股。
+    # 必须在 compute_impact 之前——relevance 用 symbols 有无来定档。
+    if (cfg.get("news") or {}).get("entity_link", True):
+        try:
+            print(stats_line(link_items(items)))
+        except Exception as e:  # noqa: BLE001
+            print(f"[agg] 实体链接失败 {type(e).__name__}: {e}")
     items = compute_impact(items, themes, weights, window_minutes, burst_cap)
     print(f"[agg] 去重后 {len(items)} 条，已按影响分排序")
 

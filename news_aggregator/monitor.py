@@ -35,6 +35,7 @@ from news_aggregator.run import compute_daily, dedupe, load_history, save_histor
 from news_aggregator.boards import get_board_cache  # noqa: E402
 from news_aggregator.impact import keyword_match, match_themes, compute_impact  # noqa: E402
 from news_aggregator.stock_impact import map_news_to_stocks  # noqa: E402
+from news_aggregator.entity_link import link_items, stats_line  # noqa: E402
 from news_aggregator.event_filter import classify as classify_event  # noqa: E402
 from news_aggregator.event_filter import volatility_ref  # noqa: E402
 
@@ -319,6 +320,15 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     for it in all_items:
         uniq.setdefault(it["id"], it)
     new_items = filter_recent([it for it in uniq.values() if it["id"] not in seen_set], days=30)
+
+    # 实体链接：把市场级快讯归属到个股（monitor 此前完全没做文本打标，
+    # 导致非逐股抓取的条目 symbols 恒空，个股情绪只剩逐股 feed 一条来源）。
+    if (cfg.get("news") or {}).get("entity_link", True) and new_items:
+        try:
+            st = link_items(new_items)
+            print(stats_line(st))
+        except Exception as e:  # noqa: BLE001
+            print(f"[monitor] 实体链接失败 {type(e).__name__}: {e}")
 
     if cold_start and new_items:
         print(f"[monitor] 首次运行：仅建立基线，跳过 {len(new_items)} 条历史消息，不告警")

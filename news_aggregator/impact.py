@@ -159,10 +159,13 @@ def compute_impact(items: list, themes: list | None = None,
     counts = _burst_counts(items, epochs, window_sec)
 
     texts = [f"{it.get('title', '')} {it.get('content', '')}" for it in items]
+    # 标题优先打分：texts 的构造保证 text.startswith(title)，中文路径据此
+    # 把正文命中降权（详见 sentiment.score_text_zh）。英文后端忽略 titles。
+    titles = [str(it.get("title", "") or "") for it in items]
     if use_stored_scores:
         scores = [float(it.get("sentiment") or 0.0) for it in items]
     else:
-        scores = score_batch(texts)
+        scores = score_batch(texts, titles)
 
     for idx, (it, cnt) in enumerate(zip(items, counts)):
         text = texts[idx]

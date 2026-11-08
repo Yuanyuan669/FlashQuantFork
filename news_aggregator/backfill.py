@@ -462,12 +462,22 @@ def fetch_finnhub_news(ticker: str, start_date: str, end_date: str, token: str) 
 # ---------- 归档 ----------
 
 def archive(items: list) -> int:
-    """按日期追加写入 news/raw/{date}.jsonl（幂等：跳过文件里已存在的 id）。"""
+    """按日期追加写入 news/raw/{date}.jsonl（幂等：跳过文件里已存在的 id）。
+
+    落盘前给缺 `sentiment` 的条目补分（离线词典，零成本、无网络）。
+    这是必须的，不是优化：下游两条路径都把「字段缺失」当成「情绪 0 分」——
+    `run.compute_daily` 与 `compute_impact(use_stored_scores=True)` 都用
+    `float(it.get("sentiment") or 0.0)` 求值，而 rescore_raw.py 会把结果**写回 raw**，
+    于是 0 被永久固化。历史上这正好清零了 东方财富个股新闻(1812 条) 与
+    东方财富公告(498 条)——仅有的两个带 A股代码标签的中文源。
+    """
+    from news_aggregator.sentiment import score_text
+
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     by_day: dict = {}
     for it in items:
         by_day.setdefault(it.get("date", "unknown"), []).append(it)
-    written = 0
+    written = filled = 0
     for day, lst in by_day.items():
         path = RAW_DIR / f"{day.replace('-', '')}.jsonl"
         existing = set()
@@ -484,6 +494,15 @@ def archive(items: list) -> int:
             for it in lst:
                 if it.get("id") in existing:
                     continue
+                if it.get("sentiment") is None:
+                    # 传 title 以启用中文标题优先打分（见 sentiment.score_text_zh）
+                    it["sentiment"] = round(score_text(
+                        f"{it.get('title', '')} {it.get('content', '')}",
+                        it.get("title", "")), 4)
+                    filled += 1
                 f.write(json.dumps(it, ensure_ascii=False) + "\n")
                 written += 1
+    if filled:
+        print(f"[backfill] 归档时为 {filled} 条缺 sentiment 的条目补了词典分"
+              f"（避免下游把缺分当成 0 分固化）")
     return written

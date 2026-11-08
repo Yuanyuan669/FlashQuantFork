@@ -120,7 +120,9 @@ def compute_daily(items):
         d = it["date"]
         sc = it.get("sentiment")
         if sc is None:
-            sc = score_text(f"{it.get('title', '')} {it.get('content', '')}")
+            # 传 title 以启用中文标题优先打分（正文常含背景/反向数字，见 score_text_zh）
+            sc = score_text(f"{it.get('title', '')} {it.get('content', '')}",
+                            it.get("title", ""))
         try:
             sc = float(sc)
         except (TypeError, ValueError):
@@ -317,7 +319,9 @@ def build_report(day: str, items, stats, market, sym_out, summary=None) -> str:
         # 影响分阶段已写入 sentiment 字段，直接复用（get 默认值会被急切求值，llm 后端会重复计费）
         sc = it.get("sentiment")
         if sc is None:
-            sc = score_text(f"{it.get('title', '')} {it.get('content', '')}")
+            # 传 title 以启用中文标题优先打分（正文常含背景/反向数字，见 score_text_zh）
+            sc = score_text(f"{it.get('title', '')} {it.get('content', '')}",
+                            it.get("title", ""))
         lines.append(f"| {imp:.3f} | {sc:+.2f} | {it.get('source')} | {text} |")
     lines.append("")
     return "\n".join(lines)

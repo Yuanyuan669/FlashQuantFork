@@ -30,7 +30,7 @@ from zoneinfo import ZoneInfo  # noqa: E402
 TZ = ZoneInfo("Asia/Shanghai")
 
 from news_aggregator.impact import compute_impact  # noqa: E402
-from news_aggregator.sentiment import configure_backend  # noqa: E402
+from news_aggregator.sentiment import configure_backend, _lexicon_score  # noqa: E402
 
 def state_path(shard: str) -> Path:
     """分片各自的断点状态文件（多机并行互不覆盖）。"""
@@ -118,7 +118,7 @@ def main() -> int:
     skipped = len(files) - len(todo)
     if skipped:
         print(f"[rescore] 断点续跑：跳过已完成 {skipped} 个，待处理 {len(todo)} 个")
-    total = rescored = 0
+    total = rescored = filled = 0
     for k, p in enumerate(todo, 1):
         lines = [l for l in p.read_text(encoding="utf-8", errors="replace").splitlines()
                  if l.strip().startswith("{")]
@@ -133,6 +133,18 @@ def main() -> int:
             save_state(state, state_p)
             continue
         total += len(items)
+        # --reweight 只重算权重、复用已存情绪分。但「缺分」不等于「中性 0 分」：
+        # compute_impact 用 float(it.get("sentiment") or 0.0) 求值，缺分被当成 0 写回
+        # raw 后就永久固化了。历史上正是这条路径把 东方财富个股新闻(1812) +
+        # 东方财富公告(498) 两个源整体清零——而它们是仅有的带 A股代码标签的中文源，
+        # 等于把个股级情绪信号抹掉。故重加权前先用离线词典补分，并报出补了多少条。
+        if reweight:
+            for it in items:
+                if it.get("sentiment") is None:
+                    it["sentiment"] = round(_lexicon_score(
+                        f"{it.get('title', '')} {it.get('content', '')}",
+                        it.get("title", "")), 4)
+                    filled += 1
         out = compute_impact(items, themes, weights, window, burst_cap,
                              use_stored_scores=reweight)
         new_text = "\n".join(json.dumps(it, ensure_ascii=False) for it in out) + "\n"
@@ -145,7 +157,8 @@ def main() -> int:
             print(f"[rescore] 进度 {k}/{len(todo)} 文件 | 累计 {total} 条 | "
                   f"重写 {rescored} 条", flush=True)
 
-    print(f"[rescore] 完成：{total} 条 / 重写 {rescored} 条")
+    print(f"[rescore] 完成：{total} 条 / 重写 {rescored} 条"
+          + (f" / 补分 {filled} 条（原缺 sentiment，已用词典补，未当作 0）" if filled else ""))
 
     from news_aggregator.run import rebuild_history_from_raw, save_history  # noqa: E402
     h = rebuild_history_from_raw()

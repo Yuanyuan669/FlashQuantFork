@@ -159,7 +159,8 @@ def fetch_em_stock_news(keyword: str, symbol: str, start_date: str, max_pages: i
     """分页回填东财个股新闻，直到日期早于 start_date（YYYY-MM-DD）或翻页耗尽。
 
     keyword：搜索词（建议用中文简称/全称，命中质量更高）；symbol：打标签用的标的代码。
-    实测东财搜索接口约能翻 29 页（~2900 条），深度因个股关注度而异（通常半年以上）。
+    实测（2026-11，600519/600036）该接口只返回最近 ~1000 条（pageIndex 上限 10），
+    时间跨度约 1.5-2 个月，与 max_pages 无关——新闻深度是硬上限，补历史只能靠公告。
 
     注意：本接口对 `requests` 库反爬（返回空或非资讯结果），故用 stdlib 的 urllib。
     """
@@ -217,11 +218,16 @@ def fetch_em_stock_news(keyword: str, symbol: str, start_date: str, max_pages: i
     return items
 
 
-def fetch_em_announcements(code: str, symbol: str, start_date: str, page_size: int = 50, max_pages: int = 60) -> list:
+def fetch_em_announcements(code: str, symbol: str, start_date: str, page_size: int = 100, max_pages: int = 60) -> list:
     """分页回填东财公告（np-anotice-stock），全历史，通常可回填十数年。
 
     公告（业绩预告/增减持/重大合同/分红/处罚等）比新闻更结构化、信号更明确，
-    是 A股深度历史情绪的主要来源。按 notice_date 倒序翻页，直到早于 start_date。
+    是 A股深度历史情绪的主要来源。按 notice_date 倒序翻页，直到早于 start_date
+    或翻完 total_hits。
+
+    page_size 必须用 100：实测 page_size=50 时第 9 页起返回残缺/空页
+    （offset≈450 处截断，300750 只拿到 434 条），100 则能完整翻到 2017 年（1866 条）。
+    列表自带 columns[*].column_name 分类，顺手记到 item 上（零额外请求）。
     """
     import urllib.parse
     import urllib.request
@@ -230,6 +236,7 @@ def fetch_em_announcements(code: str, symbol: str, start_date: str, page_size: i
     url = "https://np-anotice-stock.eastmoney.com/api/security/ann"
     headers = {"User-Agent": UA["User-Agent"]}
     page = 1
+    total = 0
     while True:
         params = {
             "sr": "-1",
@@ -248,7 +255,9 @@ def fetch_em_announcements(code: str, symbol: str, start_date: str, page_size: i
         except Exception as e:  # noqa: BLE001
             print(f"  [backfill] 东财公告第{page}页失败: {type(e).__name__}")
             break
-        lst = (obj.get("data") or {}).get("list") or []
+        data = obj.get("data") or {}
+        lst = data.get("list") or []
+        total = int(data.get("total_hits") or total or 0)
         if not lst:
             break
         got = 0
@@ -268,9 +277,18 @@ def fetch_em_announcements(code: str, symbol: str, start_date: str, page_size: i
             it = mk(dt, "东方财富公告", title, "", detail, lang="zh")
             if it:
                 it["symbols"] = [symbol]
+                if art:
+                    it["art_code"] = art  # 供后续按需拉正文（ann_body.fetch_body）
+                cols = a.get("columns") or []
+                if cols:
+                    # 公告分类（回购预案/股东增减持/业绩预告…），供按类筛选拉正文
+                    it["column_name"] = str(cols[0].get("column_name") or "")
                 items.append(it)
                 got += 1
-        if stop or got < page_size:
+        # 短页不是结束信号（实测 page_size=50 时第 9 页会残缺），只认空页 / 日期越界 / 翻完
+        if stop:
+            break
+        if total and page * page_size >= total:
             break
         if page >= max_pages:
             print(f'  [backfill] 东财公告达到翻页上限 {max_pages}，停止')

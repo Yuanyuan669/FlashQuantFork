@@ -198,6 +198,8 @@ def main():
     def predict(ids_list, batch_size):
         order = sorted(range(len(ids_list)), key=lambda i: len(ids_list[i]))
         preds = [0] * len(ids_list)
+        # 验证必须在 eval 模式下跑：训练态带着 dropout，验证分会被系统性压低。
+        model.eval()
         with torch.no_grad():
             for k in range(0, len(order), batch_size):
                 idx = order[k: k + batch_size]
@@ -205,6 +207,7 @@ def main():
                 lg = model(input_ids=x, attention_mask=m).logits
                 for r, i in enumerate(idx):
                     preds[i] = int(lg[r].argmax().item())
+        model.train()
         return preds
 
     opt = AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)

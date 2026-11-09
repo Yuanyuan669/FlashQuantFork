@@ -255,6 +255,36 @@ def _count_weighted(pairs) -> tuple:
     return pos + min(wpos, WEAK_CAP), neg + min(wneg, WEAK_CAP)
 
 
+# 行情综述分句（2026-11-09）：东财/同花顺通稿习惯把「上证指数报3665.94点，涨0.46%；
+# 深证成指涨0.27%……」整段拼在个股或排行榜快讯后面。词典会把每个「涨0.46%」记一次
+# 利好——实测「中际旭创成交额A股第一」正文因此得 +0.83，而标题单独打分是 0.0，
+# 这条与中际旭创的方向无关。只删纯播报分句（带指数名且带点位/涨跌幅，或两市成交额），
+# 事件句（中标/业绩/公告）不受影响。
+_MKT_WRAP_RE = re.compile(
+    r"(上证指数|深证成指|创业板指|科创综指|沪深300|北证50|中证500|中证1000|"
+    r"A股主要指数|三大指数|沪深北三市|两市|全市场)")
+_MKT_MOVE_RE = re.compile(
+    r"(?:涨|跌)\s*[\d.]+|报\s*[\d.]+\s*点|集体(?:上涨|下跌)|全线(?:飘红|下跌)|"
+    r"[+-]?[\d.]+\s*%")
+_MKT_TURNOVER_RE = re.compile(r"(?:两市|沪深北三市|全市场|A股).{0,10}成交.{0,10}(?:亿|万亿)")
+
+
+def strip_market_wrap(text: str) -> str:
+    """删掉纯行情综述分句（指数点位/涨跌幅/两市成交额），其余原样保留。"""
+    if not text:
+        return text
+    out = []
+    for s in re.split(r"(?<=[。；;！!])", str(text)):
+        if not s.strip():
+            continue
+        if _MKT_WRAP_RE.search(s) and _MKT_MOVE_RE.search(s):
+            continue
+        if _MKT_TURNOVER_RE.search(s):
+            continue
+        out.append(s)
+    return "".join(out)
+
+
 def score_text_zh(text: str, title: str = "", body_damp: float = BODY_DAMP) -> float:
     """中文词典打分（zh-v2 命中引擎）。
 
@@ -285,10 +315,10 @@ def score_text_zh(text: str, title: str = "", body_damp: float = BODY_DAMP) -> f
     if title:
         body = text[len(title):] if text.startswith(title) else text
         thits = zh_hits(title)
-        pairs = _hit_pairs(thits) + _hit_pairs(zh_hits(body),
+        pairs = _hit_pairs(thits) + _hit_pairs(zh_hits(strip_market_wrap(body)),
                                                body_damp if thits else 1.0)
     else:
-        pairs = _hit_pairs(zh_hits(text))
+        pairs = _hit_pairs(zh_hits(strip_market_wrap(text)))
     pos, neg = _count_weighted(pairs)
     if pos + neg <= 0:
         return 0.0

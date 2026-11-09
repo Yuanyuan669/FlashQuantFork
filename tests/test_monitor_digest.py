@@ -41,6 +41,25 @@ def test_digest_line_multi_source_badge():
     assert "×" not in _line(1, n_same=1)     # 单源不加徽标（省字节）
 
 
+def test_digest_line_links_title_when_url_present():
+    """图片点不动，链接只能放在文本摘要里：标题变 markdown 链接，指标后缀不变。"""
+    e = digest_line("中际旭创成交额A股第一", 0.68, -0.2, "个股新闻", "东财全球资讯",
+                    url="https://finance.eastmoney.com/a/1.html")
+    assert "[中际旭创成交额A股第一](https://finance.eastmoney.com/a/1.html)" in e
+    assert "｜0.68 · -0.20 · 个股新闻 · 东财全球资讯" in e
+
+
+def test_digest_line_url_is_markdown_safed():
+    """URL 里的括号/空格会截断 markdown 链接，必须先转义。"""
+    e = digest_line("t", 0.5, 0.1, url="https://x.test/a(b)c d")
+    assert "](https://x.test/a%28b%29c%20d)" in e
+
+
+def test_digest_line_fund_tag_sits_after_score():
+    e = digest_line("标题", 0.5, 0.2, "中标订单(利好)", "东财", fund="主力+6.7亿(涨+0.9%)")
+    assert "｜0.50 · +0.20 · 主力+6.7亿(涨+0.9%) · 中标订单(利好) · 东财" in e
+
+
 def test_digest_group_counts_items_not_detail_lines():
     g = digest_group("财报/公告",
                      [_line(1), "  - 算力概念(概念)：润建股份 +10.0%", _line(2)],

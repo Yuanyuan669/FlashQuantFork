@@ -38,7 +38,7 @@ from news_aggregator.push import push_alert, push_image_alert  # noqa: E402
 from news_aggregator.run import compute_daily, dedupe, load_history, save_history, upsert_history, append_items_by_date  # noqa: E402
 from news_aggregator.boards import get_board_cache  # noqa: E402
 from news_aggregator.impact import keyword_match, match_themes, compute_impact  # noqa: E402
-from news_aggregator.stock_impact import map_news_to_stocks  # noqa: E402
+from news_aggregator.stock_impact import map_news_to_stocks, match_stocks_in_text  # noqa: E402
 from news_aggregator.entity_link import link_items, stats_line  # noqa: E402
 from news_aggregator.event_filter import classify as classify_event  # noqa: E402
 from news_aggregator.event_filter import volatility_ref  # noqa: E402
@@ -46,6 +46,7 @@ from news_aggregator.alert_filter import (  # noqa: E402
     REASON_BUDGET, REASON_DUP_COOLDOWN, REASON_DUP_ROUND, REASON_THEME_QUOTA,
     Cooldown, fingerprint, select_alerts, summarize_suppressed)
 from news_aggregator import card            # noqa: E402  图片卡片（Pillow 仅 render 内导入）
+from news_aggregator import fundflow        # noqa: E402  A 股主力净流入（akshare 榜单，失败静默）
 
 # Windows 控制台编码兼容（避免 emoji 等字符导致 print 崩溃）
 if hasattr(sys.stdout, "reconfigure"):
@@ -387,15 +388,25 @@ def clip_title(title: str, limit: int = 48) -> str:
 
 
 def digest_line(title: str, impact: float, score: float, ev_short: str = "",
-                source: str = "", n_same: int = 1, title_chars: int = 48) -> str:
-    """主题分组内的一行（约 110 字节）：· 标题｜影响 · 情绪 · 事件 · 来源 [· ×N源]。
+                source: str = "", n_same: int = 1, title_chars: int = 48,
+                url: str = "", fund: str = "") -> str:
+    """主题分组内的一行（约 110 字节）：· 标题｜影响 · 情绪 · 主力 · 事件 · 来源 [· ×N源]。
 
     2026-11-09 二版：用户反馈「一条一条抓不到重点」。改为按主题分组 + 抬头给
     主线/多空统计后，单行不再重复主题名（分组标题已给），标题截断从 64 字收到
     48 字；×N源 表示轮内有 N 家源在报同一事件（多源互证=重要性的客观信号）。
+    2026-11-09 三版：标题带原文链接（企微 markdown 支持 [文字](url)，图片做不到）；
+    附主力净流入，用来区分「涨着但主力在出货」。
     """
     t = clip_title(title, title_chars)
+    u = str(url or "").strip()
+    if u:
+        # 括号/空格会截断 markdown 链接，先转义
+        u = u.replace(" ", "%20").replace("(", "%28").replace(")", "%29")
+        t = f"[{t}]({u})"
     meta = [f"{float(impact or 0.0):.2f}", f"{float(score or 0.0):+.2f}"]
+    if fund:
+        meta.append(fund)
     if ev_short:
         meta.append(ev_short)
     if source:
@@ -403,6 +414,28 @@ def digest_line(title: str, impact: float, score: float, ev_short: str = "",
     if int(n_same or 1) > 1:
         meta.append(f"×{int(n_same)}源")
     return f"· {t}｜{' · '.join(meta)}"
+
+
+# 与常用词撞名的股票：机器人(300024)、老百姓(603883)。「机器人零部件…恒而达回应」
+# 会把资金面挂到 300024 上。这类名字不参与「标题点名」判定——漏标好过标错。
+_GENERIC_STOCK_NAMES = {"机器人", "老百姓"}
+
+
+def item_fund_code(it: dict) -> str:
+    """标题里唯一点名的那只 A 股代码；0 只或 ≥2 只都返回空串。
+
+    不用 symbols[0]：实体链接会把概念下的股票全挂上，第一只常不是新闻主体
+    （实测「恒而达回应」被挂到 300024 新松）。多只同名次不猜，宁可不显示资金面。
+    """
+    hits = [h for h in match_stocks_in_text(it.get("title") or "")
+            if h["name"] not in _GENERIC_STOCK_NAMES]
+    return hits[0]["code"] if len(hits) == 1 else ""
+
+
+def item_fund_tag(it: dict, fund_by_code: dict) -> str:
+    """条目的 A 股主力资金标签，只认标题点名的股票；无数据返回空串。"""
+    f = fund_by_code.get(item_fund_code(it))
+    return fundflow.fmt_tag(f) if f else ""
 
 
 def digest_group(theme: str, lines: list, tone: str = "") -> str:
@@ -684,6 +717,28 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     n_quota = sup_sum.get(REASON_THEME_QUOTA, 0)
     n_budget = sup_sum.get(REASON_BUDGET, 0)
 
+    # 热词榜是独立配额（2026-11-09）：原先只统计入选的 8 条，词云等于把列表再念一遍。
+    # 改为统计全部过阈值候选，同题多源各计一次（多源互证本身就是强度信号）；
+    # 列表预算与词云互不影响，改列表条数不会再把词云一起缩掉。
+    kw_count: dict = {}
+    for c in cands:
+        seen_kw = set()
+        for _th, hs in c["matched"]:
+            for h in hs:
+                if h not in seen_kw:
+                    seen_kw.add(h)
+                    kw_count[h] = kw_count.get(h, 0) + 1
+
+    # 资金面（A 股）：主力净流入是「成交额第一」这类行情稿的对照面——涨着但主力净流出
+    # 才有出货嫌疑。一轮一次全市场快照（~20s），失败静默跳过，不阻塞推送。
+    fund_by_code: dict = {}
+    if bool(mon_cfg.get("fund_flow", True)):
+        codes = [item_fund_code(c["item"]) for c in picked]
+        codes = [c for c in codes if c]
+        if codes:
+            fund_by_code = fundflow.snapshot(codes,
+                                             timeout=float(mon_cfg.get("fund_flow_timeout", 30)))
+
     # ---- 阶段 3：只对选中的做重活并生成告警 ----
     pending: list = []    # [(title, content)]，非聚合模式逐条推送用
     rows: list = []       # alerts.jsonl 流水（含落选候选）
@@ -694,7 +749,6 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     group_order: list = []     # 主题首次出现顺序（picked 已按影响分降序 ⇒ 组间即重要性序）
     group_tone: dict = {}      # 主题 -> {利好/利空/中性: n}
     tone_all: dict = {}
-    kw_count: dict = {}        # 命中关键词 -> 出现条数（只统计实际推送的，做权重榜）
     # 明细行去重：板块明细只取决于命中的主题，同轮两条同主题新闻会渲染出
     # 一模一样的「人工智能(概念)：奥雅股份 +12.5%…」（2026-11-09 dry-run 实测），
     # 合并成一条消息后这种逐字重复特别显眼且白占字节，故同轮只保留首次出现。
@@ -714,8 +768,6 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
                 if h not in seen_h:
                     seen_h.add(h)
                     merged_hits.append(h)
-        for h in merged_hits:                    # 每条新闻对同一关键词只计 1 次
-            kw_count[h] = kw_count.get(h, 0) + 1
         # LLM 个股影响映射：只对选中的告警调用（失败不阻塞）
         stock_map = []
         if si_enabled:
@@ -736,14 +788,16 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
             groups[key] = []
             group_order.append(key)
             group_tone[key] = {}
+        fund_tag = item_fund_tag(it, fund_by_code)   # 资金面（A 股条目才有）
         card_groups.setdefault(key, []).append({
             "title": it.get("title") or text[:60],
             "impact": c["impact"], "score": c["score"],
             "ev": _event_short(c["ev"]), "source": it.get("source") or "",
-            "n_same": int(c.get("n_same") or 1)})
+            "n_same": int(c.get("n_same") or 1), "fund": fund_tag})
         groups[key].append(digest_line(it.get("title") or text[:60], c["impact"],
                                        c["score"], _event_short(c["ev"]),
-                                       it.get("source") or "", c.get("n_same", 1)))
+                                       it.get("source") or "", c.get("n_same", 1),
+                                       url=it.get("url") or "", fund=fund_tag))
         # 板块/个股明细：只给前 top_detail 个「互不相同」的，作为组内附加行
         detail = ""
         if len(seen_details) < top_detail:

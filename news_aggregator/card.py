@@ -327,6 +327,8 @@ def render(payload: dict, out_path: str, *, width: int = DEFAULT_WIDTH,
             if it.get("score") is not None:
                 sc = float(it["score"])
                 meta.append(f"情绪 {'+' if sc >= 0 else ''}{sc:.2f}")
+            if it.get("fund"):          # A 股主力净流入：涨着但主力净流出=出货嫌疑
+                meta.append(str(it["fund"]))
             if it.get("ev"):
                 meta.append(str(it["ev"]))
             if it.get("source"):

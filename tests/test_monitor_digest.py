@@ -5,9 +5,9 @@
 主线/多空统计；单行不再重复主题名，标题截断 64→48 字，并新增 ×N源 多源互证标记。
 """
 
-from news_aggregator.monitor import (_event_dir, _tone_str, build_digest,
+from news_aggregator.monitor import (_event_dir, _tone_str, build_digest, clip_title,
                                      digest_group, digest_keywords, digest_line,
-                                     digest_mainline)
+                                     digest_mainline, order_themes_by_title)
 
 HEADER = ("**[事件告警汇总] 11-06 15:07 · 推送 15 条（过阈值 169 / 新增 901）**\n"
           "热词：算力9 · 回购6 · 三季报5 · 中标3 · 减持2\n"
@@ -146,3 +146,55 @@ def test_typical_round_is_a_single_message():
 def test_digest_empty():
     assert build_digest([]) == []
     assert build_digest([], HEADER) == []
+
+
+# ---------------- 标题收刀 + 主题排序（2026-11-09 三版） ----------------
+
+def test_clip_title_cuts_at_clause_boundary():
+    """48 字硬截会砍出「（15905…」这种半截括号，改成句读收刀。"""
+    t = ("苹果发布机器人自主控制系统HALO、全球科技巨头加速布局机器人产业！"
+         "机器人ETF广发（159050）标的指数盘中一度涨超4%")
+    out = clip_title(t, 48)
+    assert out == "苹果发布机器人自主控制系统HALO、全球科技巨头加速布局机器人产业"
+    assert "…" not in out                 # 收成一句完整话，不加省略号
+    assert "ETF" not in out               # 盘面噪声尾巴被丢掉
+
+
+def test_clip_title_keeps_numbers_intact():
+    """边界集合里不能有 ASCII 的 . 和 ,，否则「增长24.8%」会被砍成「增长24」。"""
+    t = "中国建筑前三季度归母净利润同比下降24.8%，公司称系行业结算节奏变化所致影响有限"
+    out = clip_title(t, 30)
+    assert "24.8%" in out
+    assert not out.endswith(".") and not out.endswith(",")
+
+
+def test_clip_title_short_and_hard_cases():
+    assert clip_title("短标题", 48) == "短标题"
+    assert clip_title("无边界" * 30, 20).endswith("…")
+
+
+def _th(name, kws):
+    return {"name": name, "keywords": kws, "macro": False}
+
+
+def test_order_themes_prefers_title_hits():
+    """「军工电子板块走高」正文带 ETF 通稿尾巴（成交额），分组必须落在军工。"""
+    th_jr, th_wg = _th("券商/金融", ["成交额", "证券"]), _th("军工", ["军工", "航天"])
+    title = "军工电子板块走高，铖昌科技涨停"
+    content = "航天发展、华力创通等走高，军工龙头ETF富国（512710）涨1.95%，成交额1.6亿元"
+    matched = [(th_jr, ["成交额"]), (th_wg, ["军工", "航天"])]      # themes.yaml 原序
+    out = order_themes_by_title(matched, title)
+    assert [t["name"] for t, _ in out] == ["军工", "券商/金融"]
+
+
+def test_order_themes_keeps_order_when_title_hits_nothing():
+    matched = [(_th("券商/金融", ["成交额"]), ["成交额"]),
+               (_th("军工", ["航天"]), ["航天"])]
+    assert order_themes_by_title(matched, "某条正文里带这些词但标题没写") == matched
+
+
+def test_order_themes_more_title_keywords_wins():
+    a, b = _th("AI/算力", ["AI"]), _th("机器人", ["机器人", "具身智能"])
+    matched = [(a, ["AI", "算力"]), (b, ["机器人", "具身智能"])]
+    out = order_themes_by_title(matched, "智元机器人具身智能医疗应用与AI落地")
+    assert out[0][0]["name"] == "机器人"        # 标题里中了两个词，压过只中一个的

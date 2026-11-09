@@ -241,6 +241,11 @@ def _event_short(ev) -> str:
 
 
 DIR_SCORE_EPS = 0.15      # 与 config.yaml 的 monitor.score_min 同量级：低于它不算有方向
+# 标题收刀的边界，分三档（见 clip_title）。**不含 ASCII 的 '.' 和 ','**——它们出现在
+# 金额/百分比里（「增长24.8%」「1,000亿」），在那里收刀会砍出「增长24」这种半截数字。
+_TITLE_CUT_STOP = "。！？!?"          # 句末：第一处就收，后面整句（多是盘面噪声）丢掉
+_TITLE_CUT_CLAUSE = "、，；：,;:"     # 句中：取 limit 内最后一处
+_TITLE_CUT_AFTER = "）)】》"          # 括号收尾：保留括号本身，切在其后
 
 
 def _event_dir(ev, score: float = 0.0) -> str:
@@ -258,6 +263,24 @@ def _event_dir(ev, score: float = 0.0) -> str:
     if s <= -DIR_SCORE_EPS:
         return "利空"
     return "中性"
+
+
+def order_themes_by_title(matched: list, title: str) -> list:
+    """分组/配额用的主题排序：标题里真出现该主题词的排前面（同分保持 themes.yaml 原序）。
+
+    依据 2026-11-09 全历史实测（17155 条可解析标题的已推送告警）：39.0%（7006 条）的分组
+    主题词在标题里一个都没出现，只靠正文命中；最犯错的泛词是 AI(1702)、公告(789)、
+    earnings(661)、证券(332)、成交额(156)。典型症状：「军工电子板块走高，铖昌科技涨停」
+    因正文 ETF 通稿尾巴里的「成交额」被分进券商/金融组。改成标题优先后 8.6% 条目的分组
+    会变（回放见 scripts 侧一次性度量，未入库）。正文命中仍参与召回，只是不再决定分组。
+    """
+    if not matched or not title:
+        return matched
+    title_hits = {th["name"]: len(hits) for th, hits in match_themes(title, [th for th, _ in matched])}
+    if not title_hits:
+        return matched          # 标题一个主题词都没中（纯正文新闻）→ 维持原序
+    pos = {th["name"]: i for i, (th, _hits) in enumerate(matched)}
+    return sorted(matched, key=lambda x: (-title_hits.get(x[0]["name"], 0), pos[x[0]["name"]]))
 
 
 def build_alert(item: dict, score: float, theme: dict, hits: list,
@@ -325,6 +348,31 @@ def build_ticker_alert(item: dict) -> tuple[str, str]:
     return title, "\n".join(lines)
 
 
+def clip_title(title: str, limit: int = 48) -> str:
+    """按句读截标题，分三档找刀口，找不到才硬截加省略号。
+
+    2026-11-09 实测：48 字硬截会产出「机器人ETF广发（15905…」「…保留10%的对…」这种
+    半句话，手机上比一条长标题更难读。三档依次是：句末标点（第一处，后面通常是转述者
+    挂的盘面噪声整句丢掉）→ 句中停顿（limit 内最后一处）→ 括号收尾（保留括号）。
+    实测同一批标题改后落到「…加速布局机器人产业」这种成句位置。
+    """
+    t = (title or "").strip().replace("\n", " ")
+    if len(t) <= limit:
+        return t
+    head = t[:limit]
+    stop = min((head.find(c) for c in _TITLE_CUT_STOP if c in head), default=-1)
+    if stop > 0:
+        return head[:stop]
+    floor = int(limit * 0.55)
+    clause = max((head.rfind(c) for c in _TITLE_CUT_CLAUSE), default=-1)
+    if clause >= floor:
+        return head[:clause]
+    closer = max((head.rfind(c) for c in _TITLE_CUT_AFTER), default=-1)
+    if closer >= floor:
+        return head[:closer + 1]
+    return head + "…"
+
+
 def digest_line(title: str, impact: float, score: float, ev_short: str = "",
                 source: str = "", n_same: int = 1, title_chars: int = 48) -> str:
     """主题分组内的一行（约 110 字节）：· 标题｜影响 · 情绪 · 事件 · 来源 [· ×N源]。
@@ -333,9 +381,7 @@ def digest_line(title: str, impact: float, score: float, ev_short: str = "",
     主线/多空统计后，单行不再重复主题名（分组标题已给），标题截断从 64 字收到
     48 字；×N源 表示轮内有 N 家源在报同一事件（多源互证=重要性的客观信号）。
     """
-    t = (title or "").strip().replace("\n", " ")
-    if len(t) > title_chars:
-        t = t[:title_chars] + "…"
+    t = clip_title(title, title_chars)
     meta = [f"{float(impact or 0.0):.2f}", f"{float(score or 0.0):+.2f}"]
     if ev_short:
         meta.append(ev_short)
@@ -493,10 +539,15 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     # 改为「同题去重 → 每主题配额 → 每轮 top-N」后回放为 1472 条告警 / 104 条消息（每轮 1 条，
     # 单条最大 2871 字节），被预算挤掉的 impact≥p90(0.66) 高影响条目 4 条。
     # 2026-11-09 香橙派 --once --dry-run 实测：新增 983 → 过阈值 198 → 推送 15，
-    # 企微消息 1 条 / 3319 字节（同题抑制 18 / 配额 43 / 预算 122）。
+    # 企微消息 1 条 / 3319 字节（同题抑制 18 / 配额 43 / 预算 122）；用户反馈手机上
+    # 「比较乱、抓不到重点」→ 预算 15→8 + 去掉板块涨幅明细行，同轮回放 2959→1440 字节。
+    # 但回放同时暴露纯按影响分取 top-8 的盲区：宏观主题（关税/CPI/央行）每轮只有 1~3 条、
+    # 名次常年 16~62，近 3 天两轮 58 条宏大候选在 8/10/12 三档预算下存活 0 条——
+    # 故新增 macro_reserve 预留（默认 2 个名额给宏主题），详见 select_alerts。
     # 落选者仍写 alerts.jsonl（pushed=false）供 alert_review.py 闭环验证。
-    max_alerts = int(mon_cfg.get("max_alerts_per_round", 15))
+    max_alerts = int(mon_cfg.get("max_alerts_per_round", 8))
     max_per_theme = int(mon_cfg.get("max_per_theme", 3))
+    macro_reserve = int(mon_cfg.get("macro_reserve", 2))
     dd_cfg = mon_cfg.get("dedupe") or {}
     cooldown = Cooldown(
         hours=float(dd_cfg.get("hours", 12)),
@@ -504,7 +555,8 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
         require_same_numbers=bool(dd_cfg.get("require_same_numbers", True)),
         enabled=bool(dd_cfg.get("enabled", True)),
         substring_containment=bool(dd_cfg.get("substring_containment", True)),
-        min_contain_chars=int(dd_cfg.get("min_contain_chars", 12)))
+        min_contain_chars=int(dd_cfg.get("min_contain_chars", 12)),
+        min_prefix_chars=int(dd_cfg.get("min_prefix_chars", 12)))
     if not dry_run:
         try:
             cooldown.load(STATE_PATH).prune()
@@ -549,7 +601,10 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
             "impact": imp,
             "score": float(score),
             "matched": matched,
-            "themes": [th["name"] for th, _ in matched],
+            # 分组主题序=标题命中优先（见 order_themes_by_title）；[0] 同时是配额归属
+            "themes": [th["name"] for th, _ in order_themes_by_title(matched, it.get("title") or "")],
+            # 是否命中宏观主题（美联储/关税/外交/央行/宏观数据）——预算预留用，见 select_alerts
+            "macro": any(th.get("macro") for th, _ in matched),
             # 事件类型标注（白名单=有 alpha，非白名单=无 alpha/反向）
             "ev": classify_event(text),
             # 历史波动参考（影响分校准：同类事件次日平均波动与大动静概率）
@@ -563,7 +618,9 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
         jac_threshold=cooldown.jac_threshold,
         require_same_numbers=cooldown.require_same_numbers,
         substring_containment=cooldown.substring_containment,
-        min_contain_chars=cooldown.min_contain_chars)
+        min_contain_chars=cooldown.min_contain_chars,
+        min_prefix_chars=cooldown.min_prefix_chars,
+        macro_reserve=macro_reserve)
     sup_sum = summarize_suppressed(suppressed)
     n_dup = sup_sum.get(REASON_DUP_ROUND, 0) + sup_sum.get(REASON_DUP_COOLDOWN, 0)
     n_quota = sup_sum.get(REASON_THEME_QUOTA, 0)

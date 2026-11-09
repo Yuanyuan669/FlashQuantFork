@@ -8,14 +8,15 @@ from datetime import datetime, timedelta
 
 from news_aggregator.alert_filter import (
     REASON_BUDGET, REASON_DUP_COOLDOWN, REASON_DUP_ROUND, REASON_THEME_QUOTA,
-    Cooldown, fingerprint, is_same_event, jaccard, normalize_title, overlap_coef,
-    select_alerts, summarize_suppressed)
+    Cooldown, common_prefix_len, core_title, fingerprint, is_same_event, jaccard,
+    normalize_title, overlap_coef, select_alerts, summarize_suppressed)
 
 
-def _cand(i, impact=0.6, theme="AI/算力", title=None, score=0.5):
+def _cand(i, impact=0.6, theme="AI/算力", title=None, score=0.5, macro=False):
     title = title if title is not None else f"新闻{i}"
     return {"item": {"id": str(i), "title": title}, "impact": impact,
-            "score": score, "themes": [theme], "fp": fingerprint(title)}
+            "score": score, "themes": [theme], "macro": macro,
+            "fp": fingerprint(title)}
 
 
 # ---------------- 同题判定 ----------------
@@ -111,6 +112,61 @@ def test_empty_title_never_matches():
     assert not is_same_event(fingerprint(""), fingerprint("某标题"))
 
 
+# ---------------- 主干前缀（2026-11-09 新增，治改写式通稿） ----------------
+
+def test_core_title_cuts_market_tail():
+    assert core_title("苹果研究团队披露机器人“大脑”HALO进展！机器人ETF万家标的指数涨超3%！") \
+        == "苹果研究团队披露机器人“大脑”HALO进展"
+    # 主干太短（<8 字）就退回整标题，别让「苹果！」这种退化主干去吞不相干条目
+    assert core_title("苹果！大涨") == "苹果！大涨"
+    assert core_title("中国建筑前三季度归母净利润同比下降24.8%") \
+        == "中国建筑前三季度归母净利润同比下降24.8%"     # 无盘面尾巴 → 主干即全标题
+
+
+def test_fingerprint_carries_core_and_core_numbers():
+    fp = fingerprint("苹果研究团队披露机器人“大脑”HALO进展，科创AIETF鹏华涨超2%")
+    assert fp["core"].startswith("苹果研究团队披露机器人")
+    assert "2" not in "".join(fp["cnums"])              # 尾巴里的 2% 不在主干数字里
+    assert "2" in "".join(fp["nums"])                   # 全标题数字仍保留
+
+
+def test_paraphrased_etf_wire_is_same_event_by_prefix():
+    """11:36 那轮真实缺陷：同一 HALO 事件的两条转述因尾部 3%/2% 被数字护栏拆开。"""
+    a = fingerprint("苹果研究团队披露机器人“大脑”HALO进展！机器人ETF万家标的指数涨超3%！")
+    b = fingerprint("苹果研究团队披露机器人“大脑”进展，科创AIETF鹏华涨超2%")
+    assert jaccard(a["bg"], b["bg"]) < 0.80                 # 相似度规则并不了
+    assert not is_same_event(a, b, min_prefix_chars=0)      # 关掉前缀规则＝旧行为：尾部 3%/2% 被数字护栏拆开
+    assert is_same_event(a, b)                              # 默认开：主干前缀把两条转述并上
+
+
+def test_prefix_rule_still_respects_core_numbers():
+    """主干里数字不同（不是盘面尾巴）时，前缀规则也不许并。"""
+    a = fingerprint("宁德时代发布2026年第三季度报告净利润同比增长15.2%！机器人ETF跟涨")
+    b = fingerprint("宁德时代发布2026年第三季度报告净利润同比增长16.2%！机器人ETF跟涨")
+    assert not is_same_event(a, b, min_prefix_chars=12)
+
+
+def test_prefix_rule_needs_majority_of_shorter_core():
+    """同栏位英文专栏：公共前缀 17 字够长，但只占较短主干 0.49，不该被并。"""
+    a = fingerprint("What Is Going On With Meta Stock on Tuesday?")
+    b = fingerprint("What Is Going on With Nvidia Stock on Tuesday?")
+    assert common_prefix_len(a["core"], b["core"]) >= 12
+    assert not is_same_event(a, b)
+
+
+def test_legacy_state_fingerprint_without_core_still_works(tmp_path):
+    """旧 alert_state.json 只有 nt/nums：载入不炸，冷却照常命中。"""
+    import json
+
+    p = tmp_path / "alert_state.json"
+    payload = {"version": 1, "hours": 12, "pushed": [
+        {"nt": "国务院印发新一轮稳增长政策", "nums": [], "ts": datetime.now().isoformat()}]}
+    p.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    cd = Cooldown(hours=12).load(p)
+    assert len(cd) == 1
+    assert cd.hit(fingerprint("国务院印发新一轮稳增长政策"))
+
+
 # ---------------- 轮内去重 / 配额 / 预算 ----------------
 
 def test_within_round_dedupe_keeps_highest_impact():
@@ -167,6 +223,49 @@ def test_budget_caps_round_and_keeps_top_impact():
     assert summarize_suppressed(suppressed)[REASON_BUDGET] == 15
 
 
+def test_macro_reserve_keeps_market_level_news():
+    """预算 8 时影响分排第 10 的宏大条目（关税/CPI 那类）本来被板块快讯挤掉，预留 1 名保住。"""
+    sector = [_cand(i, impact=round(0.78 - i * 0.02, 3)) for i in range(9)]      # 0.78..0.62
+    macro = _cand(100, impact=0.60, theme="白宫/贸易政策", macro=True)
+    cands = sector + [macro]
+    ids0 = [c["item"]["id"] for c in
+            select_alerts(cands, max_alerts=8, max_per_theme=0, macro_reserve=0)[0]]
+    assert "100" not in ids0                                                    # 旧行为：宏大条目出局
+    picked, _ = select_alerts(cands, max_alerts=8, max_per_theme=0, macro_reserve=1)
+    ids = [c["item"]["id"] for c in picked]
+    assert "100" in ids and len(picked) == 8     # 预留是「置换」不是「加量」，总条数不突破预算
+
+
+def test_macro_reserve_unused_slots_return_to_general_pool():
+    """没有宏大候选时预留名额自动退回全池，不该出现「本轮只推 6 条」。"""
+    cands = [_cand(i, impact=round(0.78 - i * 0.02, 3)) for i in range(20)]
+    picked, _ = select_alerts(cands, max_alerts=8, max_per_theme=0, macro_reserve=2)
+    assert len(picked) == 8
+    assert all(not c.get("macro") for c in picked)
+
+
+def test_macro_reserve_never_exceeds_budget():
+    """预留数大于预算时按预算封顶。"""
+    cands = ([_cand(100 + i, impact=0.40, theme="白宫/贸易政策", macro=True) for i in range(4)]
+             + [_cand(i, impact=0.70) for i in range(3)])
+    picked, _ = select_alerts(cands, max_alerts=3, max_per_theme=0, macro_reserve=3)
+    assert len(picked) == 3 and all(c.get("macro") for c in picked)
+
+
+def test_reserve_claims_dedupe_and_picked_stays_impact_sorted():
+    """预留候选同样吃同题去重；名额退回全池；展示顺序仍按影响分降序（预留不是插队到最前）。"""
+    cands = [_cand(i, impact=round(0.78 - i * 0.02, 3)) for i in range(9)]
+    m1 = _cand(100, impact=0.60, theme="白宫/贸易政策", macro=True, title="关税暂停两个月")
+    m2 = _cand(101, impact=0.59, theme="白宫/贸易政策", macro=True, title="关税暂停两个月")
+    picked, suppressed = select_alerts(cands + [m1, m2], max_alerts=8,
+                                       max_per_theme=0, macro_reserve=2)
+    ids = [c["item"]["id"] for c in picked]
+    assert "101" not in ids                                   # 同题转述不占第二个预留名额
+    assert summarize_suppressed(suppressed)[REASON_DUP_ROUND] >= 1
+    assert len(picked) == 8                                   # 省下的名额退回全池
+    assert [c["impact"] for c in picked] == sorted((c["impact"] for c in picked), reverse=True)
+
+
 def test_zero_budget_means_unlimited():
     cands = [_cand(i) for i in range(5)]
     picked, suppressed = select_alerts(cands, max_alerts=0, max_per_theme=0)
@@ -202,8 +301,10 @@ def test_cooldown_suppresses_title_plus_extension():
     assert picked == []
     assert summarize_suppressed(suppressed) == {REASON_DUP_COOLDOWN: 1}
 
-    # 关掉子串包含就不会被吞：落选条目仍写 alerts.jsonl，alpha 损失交 alert_review 校验
-    cd2 = Cooldown(hours=12, substring_containment=False)
+    # 关掉子串包含和前缀规则才不会被吞（2026-11-09 加了主干前缀规则后，
+    # 单关子串仍会被前缀规则并掉——这条转述主干公共前缀 22 字、占短主干 0.61）：
+    # 落选条目仍写 alerts.jsonl，alpha 损失交 alert_review 校验
+    cd2 = Cooldown(hours=12, substring_containment=False, min_prefix_chars=0)
     cd2.remember(old, ts=t0)
     picked2, sup2 = select_alerts([_cand(3, title=new)], cooldown=cd2, max_per_theme=0)
     assert len(picked2) == 1 and not sup2

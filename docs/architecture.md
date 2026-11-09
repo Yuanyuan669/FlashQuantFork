@@ -60,6 +60,8 @@ flowchart LR
 
 换后端的尝试有实测记录（`scripts/sentiment_ab_eval.py`，2026-11-09，Pi CPU）：自有 120 条人工标注上词典 acc .808 / 方向 .987（n=78，词典在这批数据上调过，偏乐观），中文金融 BERT `hw2942` acc .567 / 方向 .939（n=49，55.8% 判中性，丢信号）；FinFE test（复旦 BBT-Fin/CFLEB 社媒三分类，1000 条）上词典 acc .420 / macroF1 .394，BERT acc .500 / macroF1 .504，多数类基线是 .462，两者都弱。BERT 约 110–118ms/条（一轮 120 条 ≈ 13s）。复旦论文里 80.24% 属于 BBT-FinT5-large，权重没有公开，公开代理模型达不到；所以暂不换后端，除非后续在 GPU 上用 FinFE train（15k）自己微调并证明能迁移到快讯/公告文体。
 
+2026-11-10 在 7CH（RTX 5070 Ti）补跑了这件事：FinFE 微调后的模型在 410 条标题口径上 acc .632、中性泄漏 .360，不达标；改用自己的标注做 5 折域适配（按日期整组切折）才到 acc .771 / macro-F1 .648 / 中性泄漏 .168 / 个股 .627，McNemar p=.0001，仅剩利空召回 12/28 与词典持平。仍不切后端，判据与边界见 `docs/finetune-cn-sentiment.md` §5。
+
 ### 2.3 影响分模型（`news_aggregator/impact.py`）
 
 ```

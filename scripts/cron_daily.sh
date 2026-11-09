@@ -25,6 +25,11 @@ git config user.email "flashquant@cron.local"
 git add news/ dashboard/index.html
 if ! git diff --cached --quiet; then
   git commit -m "chore: daily update $(date '+%F %H:%M')"
-  git pull --rebase --autostash origin master
-  git push
+  if ! git pull --rebase --autostash origin master; then
+    echo "[cron] rebase 失败，数据提交留在本地 $(git rev-parse --short HEAD)，需手动处理"
+    exit 1
+  fi
+  if ! git push; then
+    echo "[cron] push 失败，数据提交留在本地 $(git rev-parse --short HEAD)；下轮 pull 会因分叉而中止，需手动处理"
+  fi
 fi

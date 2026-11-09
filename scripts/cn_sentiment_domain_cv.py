@@ -64,6 +64,23 @@ def make_folds(rows, k, seed):
     return folds
 
 
+def make_date_folds(rows, k):
+    """按日期整组切分：同一天的条目只会落在同一折，评估的是「没见过的那几天」。
+
+    随机折会把同一天、同一事件的近似标题分到训练与验证两侧，OOF 会偏乐观；
+    这个切分是部署口径（未来日期全是新的）的对照。
+    """
+    groups = {}
+    for i, r in enumerate(rows):
+        groups.setdefault(str(r.get("date") or f"#{i}"), []).append(i)
+    # 大日期先放，每次放进当前最小的一折，尽量均衡
+    folds = [[] for _ in range(k)]
+    for key in sorted(groups, key=lambda key: (-len(groups[key]), key)):
+        j = min(range(k), key=lambda f: (len(folds[f]), f))
+        folds[j].extend(groups[key])
+    return [f for f in folds if f]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--finfe-model", required=True, help="FinFE 阶段产物目录（…/best）")
@@ -75,6 +92,9 @@ def main():
     ap.add_argument("--max-len", type=int, default=64)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
+    ap.add_argument("--group-by", choices=("label", "date"), default="label",
+                    help="label = 按(标签,分层)分层随机折（默认，评估同分布内插）；"
+                         "date = 按日期整组切折（评估没见过的日期，部署口径，更严）")
     ap.add_argument("--json-out", default="")
     args = ap.parse_args()
 
@@ -92,13 +112,15 @@ def main():
     titles = [r["title"] for r in keep]
     gold = [int(r["label"]) for r in keep]
     log(f"自有标注 {len(rows)} 条，可用 {len(keep)} 条（剔除存疑 {len(rows) - len(keep)}）")
-
     tok = AutoTokenizer.from_pretrained(args.finfe_model, local_files_only=True)
     pad_id = tok.pad_token_id if tok.pad_token_id is not None else 0
     enc = tok(titles, add_special_tokens=True, truncation=True, max_length=args.max_len)
     ids = [list(x) for x in enc["input_ids"]]
 
-    folds = make_folds(keep, args.folds, args.seed)
+    folds = (make_date_folds(keep, args.folds) if args.group_by == "date"
+             else make_folds(keep, args.folds, args.seed))
+    tag = "按日期" if args.group_by == "date" else "分层随机"
+    log(f"切分：{tag}，{len(folds)} 折，各折条数 {[len(f) for f in folds]}")
     oof = [1] * len(keep)
     t_all = time.time()
     for fi, val_idx in enumerate(folds):
@@ -150,7 +172,7 @@ def main():
     lex_pred = [lex_label(s, 0.0) for s in lex_scores]
 
     results = []
-    r_model = report("模型/域适配 5 折 OOF", gold, oof)
+    r_model = report(f"模型/域适配 {len(folds)} 折 OOF（{tag}）", gold, oof)
     r_lex = report("词典/标题", gold, lex_pred)
     r_neu = report("全判中性", gold, [1] * len(gold))
     p, b, c = mcnemar([int(p_ == g) for p_, g in zip(oof, gold)],

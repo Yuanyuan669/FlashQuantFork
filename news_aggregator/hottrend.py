@@ -97,7 +97,7 @@ def fetch_zhihu() -> list:
     """知乎热榜：data[].target -> title_area.text / metrics_area.text / link.url。"""
     data = _get("https://www.zhihu.com/api/v3/feed/topstory/hot-list-web?limit=50&desktop=true")
     out = []
-    for row in data.get("data") or []:
+    for rank_i, row in enumerate(data.get("data") or [], 1):
         target = row.get("target") or {}
         title = ((target.get("title_area") or {}).get("text") or "").strip()
         title = title.removeprefix("热搜｜").strip()
@@ -112,8 +112,20 @@ def fetch_zhihu() -> list:
 
 
 def fetch_douyin() -> list:
-    """抖音热点：data.word_list[] -> word/hot_value。"""
-    data = _get("https://www.douyin.com/aweme/v1/web/hot/search/list/")
+    """抖音热点：data.word_list[] -> word/hot_value。
+
+    端点要求 webapp 公共参数 **且** Referer=https://www.douyin.com/hot：
+    实测缺 Referer 时返回 HTTP 200 但 body 长度为 0（content-type=text/plain），
+    json() 直接抛 JSONDecodeError；带 Referer 返回 application/json / 51 条。
+    """
+    data = _get(
+        "https://www.douyin.com/aweme/v1/web/hot/search/list/"
+        "?device_platform=webapp&aid=6383&channel=channel_pc_web"
+        "&detail_list=1&source=6&platform=PC&browser_language=zh-CN"
+        "&browser_platform=Win32&browser_name=Chrome&browser_online=true"
+        "&engine_name=Blink&os_name=1&os_version=10.0",
+        headers={"Referer": "https://www.douyin.com/hot"},
+    )
     out = []
     for rank_i, row in enumerate((data.get("data") or {}).get("word_list") or [], 1):
         word = str(row.get("word") or "").strip()
@@ -129,7 +141,7 @@ def fetch_toutiao() -> list:
     """头条热榜：data[] -> Title/HotValue/ClusterIdStr。"""
     data = _get("https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc")
     out = []
-    for row in data.get("data") or []:
+    for rank_i, row in enumerate(data.get("data") or [], 1):
         title = str(row.get("Title") or "").strip()
         if not title:
             continue

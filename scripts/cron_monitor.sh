@@ -17,7 +17,17 @@ export no_proxy=localhost,127.0.0.1,eastmoney.com,cls.cn,sina.com.cn,10jqka.com.
 cd /home/orangepi/flashquant || exit 1
 export HF_ENDPOINT=https://hf-mirror.com
 
-git pull --ff-only origin master 2>&1 | tail -1
+# 同步生产代码：pull 失败必须中止本轮，绝不拿旧代码继续跑。
+# 2026-11-09 实测教训：原来写成 `git pull ... | tail -1`，退出码被管道吃掉，
+# 拉取失败也照样跑旧版本 —— 推送格式改了却不生效，排查时白查半天。
+pull_out=$(git pull --ff-only origin master 2>&1)
+pull_rc=$?
+echo "$pull_out" | tail -1
+if [ "$pull_rc" -ne 0 ]; then
+  echo "[cron] git pull 失败（rc=$pull_rc）$(date '+%F %T')，中止本轮（不跑旧代码）"
+  exit 1
+fi
+echo "[cron] 运行版本 $(git rev-parse --short HEAD) $(date '+%F %T')"
 "$HOME/.venvs/flashquant/bin/python" news_aggregator/monitor.py --once --no-stock-impact
 
 git config user.name "flashquant-cron"

@@ -122,6 +122,31 @@ def test_within_round_dedupe_keeps_highest_impact():
     assert summarize_suppressed(suppressed) == {REASON_DUP_ROUND: 1}
 
 
+def test_representative_carries_multi_source_count():
+    """n_same = 1 + 被它吸收的同题转述数，摘要里渲染成 ×N源（多源互证信号）。"""
+    same = "多源报道：某地宣布新一轮算力基建投资计划落地"
+    cands = [_cand(1, 0.60, title=same), _cand(2, 0.80, title=same),
+             _cand(3, 0.55, title=same), _cand(4, 0.90, title="独家：另一件事")]
+    picked, _ = select_alerts(cands, max_alerts=10, max_per_theme=0)
+    by_id = {c["item"]["id"]: c for c in picked}
+    assert by_id["2"]["n_same"] == 3          # 影响分最高的代表吸收其余两条
+    assert by_id["4"]["n_same"] == 1          # 无同题时保持 1，不渲染徽标
+
+
+def test_cooldown_hit_does_not_inflate_multi_source_count():
+    """跨轮冷却命中的候选不产生代表，也不会被计入别条的 n_same。"""
+    old = "上一轮已推送：某部委发布算力基础设施专项行动方案"
+    new = "本轮独立事件：另一家公司公告定向增发募资扩产"
+    cooldown = Cooldown(hours=12)
+    cooldown.remember(title=old)
+    cands = [_cand(1, 0.90, title=old), _cand(2, 0.85, title=new)]
+    picked, suppressed = select_alerts(cands, cooldown=cooldown,
+                                       max_alerts=10, max_per_theme=0)
+    assert [c["item"]["id"] for c in picked] == ["2"]
+    assert picked[0]["n_same"] == 1
+    assert summarize_suppressed(suppressed) == {REASON_DUP_COOLDOWN: 1}
+
+
 def test_theme_quota_spreads_budget_across_themes():
     cands = ([_cand(i, 0.9 - i * 0.01, theme="财报/公告") for i in range(6)]
              + [_cand(100 + i, 0.6 - i * 0.01, theme="AI/算力") for i in range(3)])

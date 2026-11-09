@@ -40,7 +40,23 @@ python news_aggregator/monitor.py --no-boards   # 跳过板块缓存（更快/�
 
 工作流：轮询快讯源 → id 去重（`news/seen.json`）→ 情绪打分 → 事件词匹配（`themes.yaml`）→ 影响分/情绪地板过滤 → **注意力预算**（同题去重 + 每主题配额 + 每轮 top-N，见 `news_aggregator/alert_filter.py`）→ 板块/个股映射（只对入选条目调 LLM）→ 多通道告警。首次运行只建立基线不告警历史旧闻。
 
-调节推送量的旋钮都在 `config.yaml` 的 `monitor:` 段：`impact_min` / `score_min`（入口阈值）、`max_alerts_per_round`（每轮条数上限）、`max_per_theme`（单主题配额）、`dedupe.hours`（跨轮冷却窗）、`digest_top_detail`（摘要里带明细行的条数）。被筛掉的候选仍写进 `news/alerts.jsonl`（`pushed=false` + `reason`），用 `python scripts/alert_review.py` 校验有没有把 alpha 挤掉。
+调节推送量的旋钮都在 `config.yaml` 的 `monitor:` 段：`impact_min` / `score_min`（入口阈值）、`max_alerts_per_round`（每轮条数上限）、`max_per_theme`（单主题配额）、`dedupe.hours`（跨轮冷却窗）、`digest_top_detail`（摘要里带明细行的条数）、`digest_top_keywords`（抬头热词榜取前几个，0=不显示）。被筛掉的候选仍写进 `news/alerts.jsonl`（`pushed=false` + `reason`），用 `python scripts/alert_review.py` 校验有没有把 alpha 挤掉。
+
+一轮只发一条企微 markdown 消息，结构是「抬头统计 → 按主题分组的条目」：
+
+```
+**[事件告警汇总] 11-09 15:05 · 推送 15 条（过阈值 199 / 新增 952）**
+热词：算力9 · 回购6 · 三季报5 · 中标3 · 减持2
+主线：财报/公告 5 · AI/算力 4 · 机器人 3 · 中国外交/地缘 2 · 券商/金融 1
+多空：利好9/利空3/中性3
+抑制：同题 42 · 主题配额 88 · 预算 24（落选明细见 dashboard 告警历史）
+
+**财报/公告（5，利好4/利空1）**
+· 标题｜影响分 · 情绪分 · 事件类型 · 来源 · ×3源
+  - 相关板块(概念)：某某股份 +10.0%、…
+```
+
+`×N源` 表示轮内有 N 家源在报同一事件（多源互证是重要性的客观信号）。主题分组整块参与切块，即使单组超预算也不会把组标题和条目拆到两条消息里。企微群机器人的 markdown 不能内嵌图片，所以「词云」以热词权重榜（频次降序）承载；真图片词云需要另发 `msgtype=image` 消息并在香橙派上装 wordcloud + matplotlib + 中文字体，目前未做。
 
 **生产部署（当前实际形态，香橙派 192.168.31.226）**：cron 单轮驱动，不是常驻进程。
 `scripts/cron_monitor.sh`（事件告警，每交易日 08:45 / 11:35 / 15:05 / 21:30 四档）与

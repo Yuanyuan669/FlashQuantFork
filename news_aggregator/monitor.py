@@ -240,6 +240,26 @@ def _event_short(ev) -> str:
     return f"{typ}({direction})"
 
 
+DIR_SCORE_EPS = 0.15      # 与 config.yaml 的 monitor.score_min 同量级：低于它不算有方向
+
+
+def _event_dir(ev, score: float = 0.0) -> str:
+    """多空方向（利好/利空/中性），用于摘要抬头的多空统计。
+
+    优先用事件分类给出的方向；没匹配到事件类型时回落到情绪分符号。
+    2026-11-09 dry-run 实测：15 条推送里 11 条没有事件类型，全记「中性」会让
+    抬头显示「利好4/中性11」，而实际 13 条情绪为正——统计失真，回落后才有信息量。
+    """
+    if ev and len(ev) > 1 and ev[1]:
+        return str(ev[1])
+    s = float(score or 0.0)
+    if s >= DIR_SCORE_EPS:
+        return "利好"
+    if s <= -DIR_SCORE_EPS:
+        return "利空"
+    return "中性"
+
+
 def build_alert(item: dict, score: float, theme: dict, hits: list,
                 boards: dict, theme_boards: dict, top_n: int,
                 stock_map: list | None = None, event_note: str = "",
@@ -305,30 +325,68 @@ def build_ticker_alert(item: dict) -> tuple[str, str]:
     return title, "\n".join(lines)
 
 
-def digest_entry(title: str, theme_name: str, impact: float, score: float,
-                 ev_short: str = "", source: str = "", ts: str = "",
-                 detail: str = "", title_chars: int = 64) -> str:
-    """单条告警的摘要文本（标题行 + 元数据行 [+ 明细行]，约 180 字节）。
+def digest_line(title: str, impact: float, score: float, ev_short: str = "",
+                source: str = "", n_same: int = 1, title_chars: int = 48) -> str:
+    """主题分组内的一行（约 110 字节）：· 标题｜影响 · 情绪 · 事件 · 来源 [· ×N源]。
 
-    旧格式每条 ~330 字节（标题行 + 情绪分行 + 原文行 ≤160 字），瘦身后同样的
-    企微消息能装近两倍条目；配合每轮 top-N 预算，一轮通常只需 1 条消息。
+    2026-11-09 二版：用户反馈「一条一条抓不到重点」。改为按主题分组 + 抬头给
+    主线/多空统计后，单行不再重复主题名（分组标题已给），标题截断从 64 字收到
+    48 字；×N源 表示轮内有 N 家源在报同一事件（多源互证=重要性的客观信号）。
     """
     t = (title or "").strip().replace("\n", " ")
     if len(t) > title_chars:
         t = t[:title_chars] + "…"
-    meta = [theme_name or "-"]
-    meta.append(f"影响{float(impact or 0.0):.2f}")
-    meta.append(f"情绪{float(score or 0.0):+.2f}")
+    meta = [f"{float(impact or 0.0):.2f}", f"{float(score or 0.0):+.2f}"]
     if ev_short:
         meta.append(ev_short)
     if source:
         meta.append(source)
-    if ts:
-        meta.append(ts)
-    out = f"**{t}**\n{' · '.join(meta)}"
-    if detail:
-        out += "\n" + detail.strip()
-    return out
+    if int(n_same or 1) > 1:
+        meta.append(f"×{int(n_same)}源")
+    return f"· {t}｜{' · '.join(meta)}"
+
+
+def digest_group(theme: str, lines: list, tone: str = "") -> str:
+    """一个主题分组的摘要块：组标题（条数+多空）+ 组内行。整块参与切块，不被拆散。
+
+    条数只统计以「·」开头的条目行，缩进的板块明细行不计入。
+    """
+    n = sum(1 for l in lines if l.startswith("·"))
+    head = f"**{theme or '其他'}（{n}" + (f"，{tone}" if tone else "") + "）**"
+    return head + "\n" + "\n".join(lines)
+
+
+def _tone_str(counter: dict) -> str:
+    """多空统计文本：利好4/利空1（为 0 的方向不出现，全 0 返回空串）。"""
+    parts = [f"{name}{counter.get(name, 0)}"
+             for name in ("利好", "利空", "中性") if counter.get(name, 0)]
+    return "/".join(parts)
+
+
+def digest_keywords(counter: dict, top_n: int = 8, min_count: int = 1) -> str:
+    """关键词权重榜（文本版词云）：`算力12 · 回购8 · 三季报6`。
+
+    2026-11-09 用户提的富媒体方案里，词云是「先看什么最热，再看具体条目」。
+    企微群机器人的 markdown 不能内嵌图片，真词云得单独发 image 消息并给香橙派
+    装 wordcloud+matplotlib+中文字体；这里用零依赖的权重榜承载同一信息：
+    频次即视觉权重，降序即排名。统计口径只含本轮实际推送的条目。
+    """
+    if not counter or top_n <= 0:
+        return ""
+    ranked = sorted(((k, int(v)) for k, v in counter.items() if int(v) >= min_count),
+                    key=lambda kv: (-kv[1], kv[0]))
+    return " · ".join(f"{k}{v}" for k, v in ranked[:top_n])
+
+
+def digest_mainline(counts: dict, order: list) -> str:
+    """抬头「主线」：主题×条数，按条数降序（同条数保持首次出现序）。
+
+    2026-11-09 dry-run 实测：按出现序会排出「白宫/贸易政策 1 · 机器人 3 …」——
+    因为该组含全局最高影响分那条。题头叫「主线」就该按条数排；影响分顺序由
+    正文分组顺序保持，两个维度各司其职。
+    """
+    items = sorted(((k, int(counts.get(k, 0))) for k in order), key=lambda kv: -kv[1])
+    return " · ".join(f"{k} {n}" for k, n in items) or "（无）"
 
 
 def build_digest(entries: list, header: str = "", max_bytes: int = 3800) -> list:
@@ -453,6 +511,7 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
         except Exception as e:  # noqa: BLE001
             print(f"[monitor] 同题冷却状态载入失败（按空状态继续）: {type(e).__name__}")
     top_detail = int(mon_cfg.get("digest_top_detail", 3))
+    top_keywords = int(mon_cfg.get("digest_top_keywords", 8))
     now = datetime.now()
     round_id = now.isoformat(timespec="minutes")
 
@@ -511,15 +570,21 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     n_budget = sup_sum.get(REASON_BUDGET, 0)
 
     # ---- 阶段 3：只对选中的做重活并生成告警 ----
-    entries: list = []    # 聚合摘要条目文本
     pending: list = []    # [(title, content)]，非聚合模式逐条推送用
     rows: list = []       # alerts.jsonl 流水（含落选候选）
+    # 摘要按主题分组（2026-11-09 二版）：用户反馈平铺 15 条「一条一条抓不到重点」，
+    # 改为抬头给主线（主题×条数）+ 多空统计，正文按主题分组、组内按影响分降序。
+    groups: dict = {}          # 主题 -> [digest_line / 明细行]
+    group_order: list = []     # 主题首次出现顺序（picked 已按影响分降序 ⇒ 组间即重要性序）
+    group_tone: dict = {}      # 主题 -> {利好/利空/中性: n}
+    tone_all: dict = {}
+    kw_count: dict = {}        # 命中关键词 -> 出现条数（只统计实际推送的，做权重榜）
     # 明细行去重：板块明细只取决于命中的主题，同轮两条同主题新闻会渲染出
     # 一模一样的「人工智能(概念)：奥雅股份 +12.5%…」（2026-11-09 dry-run 实测），
     # 合并成一条消息后这种逐字重复特别显眼且白占字节，故同轮只保留首次出现。
     seen_details: set = set()
 
-    for i, c in enumerate(picked):
+    for c in picked:
         it = c["item"]
         text = f"{it.get('title', '')} {it.get('content', '')}"
         # 合并告警：一条新闻只推一次，多主题合并展示（旧行为每主题各推一条，刷屏严重）
@@ -533,6 +598,8 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
                 if h not in seen_h:
                     seen_h.add(h)
                     merged_hits.append(h)
+        for h in merged_hits:                    # 每条新闻对同一关键词只计 1 次
+            kw_count[h] = kw_count.get(h, 0) + 1
         # LLM 个股影响映射：只对选中的告警调用（失败不阻塞）
         stock_map = []
         if si_enabled:
@@ -548,8 +615,15 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
         print(title)
         print(content)
         print("=" * 60 + "\n")
-        # 摘要明细行：给影响分最高、且明细互不相同的前 top_detail 条附板块/个股，
-        # 避免整轮都被拉长（配额按「不同明细」计数，重复的板块明细不占名额）
+        key = (c["themes"] or ["其他"])[0]
+        if key not in groups:
+            groups[key] = []
+            group_order.append(key)
+            group_tone[key] = {}
+        groups[key].append(digest_line(it.get("title") or text[:60], c["impact"],
+                                       c["score"], _event_short(c["ev"]),
+                                       it.get("source") or "", c.get("n_same", 1)))
+        # 板块/个股明细：只给前 top_detail 个「互不相同」的，作为组内附加行
         detail = ""
         if len(seen_details) < top_detail:
             bl = fmt_boards([th for th, _ in c["matched"]], merged_hits, boards,
@@ -564,17 +638,17 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
             detail = ""                      # 同轮已展示过同一份板块明细，不再重复
         elif detail:
             seen_details.add(detail)
-        entries.append(digest_entry(it.get("title") or text[:60], merged_theme["name"],
-                                    c["impact"], c["score"], _event_short(c["ev"]),
-                                    it.get("source") or "",
-                                    str(it.get("ts") or it.get("date") or "")[:16],
-                                    detail))
+            groups[key].append("  " + detail.strip())
+        d = _event_dir(c["ev"], c["score"])
+        group_tone[key][d] = group_tone[key].get(d, 0) + 1
+        tone_all[d] = tone_all.get(d, 0) + 1
         pending.append((title, content))
         rows.append(alert_row(it, round_id, merged_theme["name"],
                               (c["vol_ref"] or {}).get("typ", ""), c["impact"],
                               c["score"], True, ""))
 
-    # ticker 告警（国会/内部人交易）：量小价值高，始终推送，排在摘要最前
+    # ticker 告警（国会/内部人交易）：量小价值高，始终推送，单独成组排在最前
+    ticker_lines: list = []
     for it in ticker_cands:
         title, content = build_ticker_alert(it)
         print("\n" + "=" * 60)
@@ -582,10 +656,10 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
         print(content)
         print("=" * 60 + "\n")
         label = "国会交易" if it.get("kind") == "congress_trade" else "内部人交易"
-        entries.insert(0, digest_entry(
-            f"{it.get('ticker') or '-'} {it.get('title') or ''}", label,
-            float(it.get("impact") or 0.0), float(it.get("sentiment") or 0.0),
-            "", it.get("source") or "", str(it.get("date") or "")[:16]))
+        ticker_lines.append(digest_line(f"{it.get('ticker') or '-'} {it.get('title') or ''}",
+                                        float(it.get("impact") or 0.0),
+                                        float(it.get("sentiment") or 0.0),
+                                        "", it.get("source") or ""))
         pending.insert(0, (title, content))
         rows.append(alert_row(it, round_id, label, "", it.get("impact") or 0.0,
                               it.get("sentiment") or 0.0, True, "",
@@ -599,11 +673,28 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
                               (c["vol_ref"] or {}).get("typ", ""), c["impact"],
                               c["score"], False, reason))
 
-    alerts = len(entries)
-    header = (f"**[事件告警汇总] {round_id[5:].replace('T', ' ')} · "
-              f"新增 {len(new_items)} / 过阈值 {len(cands)} / 推送 {len(entries)}**\n"
-              f"抑制：同题 {n_dup} · 主题配额 {n_quota} · 预算 {n_budget}"
-              f"（落选明细见 dashboard 告警历史）")
+    entries = []
+    if ticker_lines:
+        entries.append(digest_group("另类数据（国会/内部人交易）", ticker_lines))
+    entries += [digest_group(k, groups[k], _tone_str(group_tone[k])) for k in group_order]
+
+    alerts = len(picked) + len(ticker_cands)
+    group_counts = {k: sum(1 for l in groups[k] if l.startswith("·")) for k in group_order}
+    main_line = digest_mainline(group_counts, group_order)
+    kw_line = digest_keywords(kw_count, top_keywords)
+    head_lines = [
+        f"**[事件告警汇总] {round_id[5:].replace('T', ' ')} · 推送 {alerts} 条"
+        f"（过阈值 {len(cands)} / 新增 {len(new_items)}）**",
+    ]
+    if kw_line:                      # 热词榜排在最前：先看什么最热，再看具体条目
+        head_lines.append(f"热词：{kw_line}")
+    head_lines += [
+        f"主线：{main_line}",
+        f"多空：{_tone_str(tone_all) or '中性'}",
+        f"抑制：同题 {n_dup} · 主题配额 {n_quota} · 预算 {n_budget}"
+        f"（落选明细见 dashboard 告警历史）",
+    ]
+    header = "\n".join(head_lines)
     chunks = build_digest(entries, header)
     n_msgs = 0
     if entries:

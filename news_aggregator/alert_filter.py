@@ -242,24 +242,33 @@ def select_alerts(cands: list, *, max_alerts: int = 15, max_per_theme: int = 3,
 
     返回 (picked, suppressed)；suppressed 元素为 (cand, reason)。
     picked 按影响分降序（与推送展示顺序一致）。
+    每个 picked 候选会被写入 n_same（int，默认 1）：轮内被它吸收的同题转述数 +1，
+    即「这条事件有几家源在报」。多源互证是事件重要性的客观信号，摘要里显示为 ×N源。
     """
     ordered = sorted(cands, key=lambda c: (-float(c.get("impact") or 0.0),
                                            -abs(float(c.get("score") or 0.0))))
-    picked, suppressed, reps = [], [], []
+    picked, suppressed, reps = [], [], []    # reps: [(fp, 代表候选)]
     theme_used: dict = {}
     for c in ordered:
         fp = c.get("fp") or fingerprint((c.get("item") or {}).get("title") or "")
-        # 1) 轮内同题：同一事件多源转述，只留影响分最高的那条
-        dup = any(is_same_event(fp, r, jac_threshold, require_same_numbers,
-                                substring_containment, min_contain_chars) for r in reps)
-        if dup:
+        # 1) 轮内同题：同一事件多源转述，只留影响分最高的那条，
+        #    并把被吸收的转述数记在代表候选上（n_same）
+        owner = None
+        for r_fp, r_cand in reps:
+            if is_same_event(fp, r_fp, jac_threshold, require_same_numbers,
+                             substring_containment, min_contain_chars):
+                owner = r_cand
+                break
+        if owner is not None:
+            owner["n_same"] = int(owner.get("n_same") or 1) + 1
             suppressed.append((c, REASON_DUP_ROUND))
             continue
         # 2) 跨轮冷却：窗口内已推送过的同题不再打扰
         if cooldown is not None and cooldown.hit(fp):
             suppressed.append((c, REASON_DUP_COOLDOWN))
             continue
-        reps.append(fp)
+        reps.append((fp, c))
+        c.setdefault("n_same", 1)
         # 3) 每主题配额：防止 AI/算力 + 财报/公告 吃掉全部预算
         first = (c.get("themes") or [""])[0]
         if max_per_theme > 0 and theme_used.get(first, 0) >= max_per_theme:

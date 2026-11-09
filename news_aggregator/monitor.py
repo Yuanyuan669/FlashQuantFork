@@ -481,6 +481,16 @@ def digest_mainline(counts: dict, order: list) -> str:
     return " · ".join(f"{k} {n}" for k, n in items) or "（无）"
 
 
+def compact_header(header: str) -> str:
+    """只留抬头的第一行（轮次 + 条数）。
+
+    图片卡片已经画了热词/主线/多空/抑制，文本摘要再带一遍就是同一个屏上
+    读两遍。图片发送成功时文本改用这一行；图片没发出去（渲染失败/超限）
+    则保留完整抬头，单独发文本也看得懂。
+    """
+    return (header or "").strip().split("\n", 1)[0]
+
+
 def build_digest(entries: list, header: str = "", max_bytes: int = 3800) -> list:
     """把摘要条目文本列表切成企微 markdown 消息块（每块 <= max_bytes 字节）。
 
@@ -884,6 +894,9 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     ]
     header = "\n".join(head_lines)
     chunks = build_digest(entries, header)
+    # 图片卡片已画完整抬头（热词/主线/多空/抑制），文本只留轮次行避免同屏重复；
+    # 图片没发成功时仍用完整抬头，文本单独转发也能看懂
+    chunks_lean = build_digest(entries, compact_header(header))
     rc_cfg = mon_cfg.get("rich_card") or {}
     card_payload = None
     if rc_cfg.get("enabled") and (picked or ticker_cands):
@@ -898,6 +911,7 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
             if card_payload else False
         n_imgs = 1 if img_sent else 0
         send_text = (not img_sent) or bool(rc_cfg.get("also_send_text", True))
+        send_chunks = chunks_lean if img_sent else chunks
         if dry_run:
             print("\n" + "#" * 60)
             for k, chunk in enumerate(chunks, 1):
@@ -910,10 +924,10 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
             n_msgs = n_imgs          # 图片够用、文本没发：本轮就这一条消息
             print("[monitor] 图片卡片已发送，also_send_text=false → 本轮不再发文本摘要")
         elif batch:
-            for k, chunk in enumerate(chunks, 1):
-                push_alert(cfg, f"[事件告警汇总] {len(entries)} 条（{k}/{len(chunks)}）",
+            for k, chunk in enumerate(send_chunks, 1):
+                push_alert(cfg, f"[事件告警汇总] {len(entries)} 条（{k}/{len(send_chunks)}）",
                            chunk)
-            n_msgs = len(chunks)
+            n_msgs = len(send_chunks)
         else:
             for title, content in pending:
                 push_alert(cfg, title, content)

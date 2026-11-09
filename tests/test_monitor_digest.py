@@ -6,8 +6,8 @@
 """
 
 from news_aggregator.monitor import (_event_dir, _tone_str, build_digest, clip_title,
-                                     digest_group, digest_keywords, digest_line,
-                                     digest_mainline, order_themes_by_title)
+                                     compact_header, digest_group, digest_keywords,
+                                     digest_line, digest_mainline, order_themes_by_title)
 
 HEADER = ("**[事件告警汇总] 11-06 15:07 · 推送 15 条（过阈值 169 / 新增 901）**\n"
           "热词：算力9 · 回购6 · 三季报5 · 中标3 · 减持2\n"
@@ -18,6 +18,20 @@ HEADER = ("**[事件告警汇总] 11-06 15:07 · 推送 15 条（过阈值 169 /
 
 def _line(i, n_same=1):
     return digest_line(f"新闻标题{i}", 0.62, 0.8, "财报预增(利好)", "东财全球资讯", n_same)
+
+
+def test_compact_header_drops_stats_already_drawn_on_card():
+    """图片卡片已画热词/主线/多空/抑制：发图片后文本只留轮次行，避免同屏两遍。"""
+    lean = compact_header(HEADER)
+    assert lean.startswith("**[事件告警汇总] 11-06 15:07")
+    for dup in ("热词", "主线", "多空", "抑制"):
+        assert dup not in lean
+    assert "\n" not in lean
+
+
+def test_compact_header_handles_empty_and_single_line():
+    assert compact_header("") == ""
+    assert compact_header("一行抬头") == "一行抬头"
 
 
 def test_digest_line_compact():

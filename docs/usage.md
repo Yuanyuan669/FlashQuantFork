@@ -40,7 +40,7 @@ python news_aggregator/monitor.py --no-boards   # 跳过板块缓存（更快/�
 
 工作流：轮询快讯源 → id 去重（`news/seen.json`）→ 情绪打分 → 事件词匹配（`themes.yaml`）→ 影响分/情绪地板过滤 → **注意力预算**（同题去重 + 每主题配额 + 每轮 top-N，见 `news_aggregator/alert_filter.py`）→ 板块/个股映射（只对入选条目调 LLM）→ 多通道告警。首次运行只建立基线不告警历史旧闻。
 
-调节推送量的旋钮都在 `config.yaml` 的 `monitor:` 段：`impact_min` / `score_min`（入口阈值）、`max_alerts_per_round`（每轮条数上限，2026-11-09 由 15 收到 8）、`max_per_theme`（单主题配额）、`macro_reserve`（每轮给宏观主题预留的名额，0=关闭）、`dedupe.hours`（跨轮冷却窗）、`dedupe.min_prefix_chars`（事件主干公共前缀同题阈值，0=关闭）、`digest_top_detail`（摘要里带板块明细行的条数，现为 0=不带）、`digest_top_keywords`（抬头热词榜取前几个，0=不显示）。被筛掉的候选仍写进 `news/alerts.jsonl`（`pushed=false` + `reason`），用 `python scripts/alert_review.py` 校验有没有把 alpha 挤掉。
+调节推送量的旋钮都在 `config.yaml` 的 `monitor:` 段：`impact_min` / `score_min`（入口阈值）、`max_alerts_per_round`（每轮条数上限，2026-11-09 由 15 收到 8）、`max_per_theme`（单主题配额）、`macro_reserve`（每轮给宏观主题预留的名额，0=关闭）、`dedupe.hours`（跨轮冷却窗）、`dedupe.min_prefix_chars`（事件主干公共前缀同题阈值，0=关闭）、`digest_top_detail`（摘要里带板块明细行的条数，现为 0=不带）、`digest_top_keywords`（抬头热词榜取前几个，0=不显示）、`rich_card.enabled`/`rich_card.also_send_text`（图片卡片与「图片+文本」双发开关，见下）。被筛掉的候选仍写进 `news/alerts.jsonl`（`pushed=false` + `reason`），用 `python scripts/alert_review.py` 校验有没有把 alpha 挤掉。
 
 一轮只发一条企微 markdown 消息，结构是「抬头统计 → 按主题分组的条目」：
 
@@ -55,7 +55,9 @@ python news_aggregator/monitor.py --no-boards   # 跳过板块缓存（更快/�
 · 国务院关税税则委员会：11月10日起2个月内继续暂停实施24%的对美加征关税税率…｜0.64 · -0.81 · 东财全球资讯
 ```
 
-`×N源` 表示轮内有 N 家源在报同一事件（多源互证是重要性的客观信号）。主题分组整块参与切块，即使单组超预算也不会把组标题和条目拆到两条消息里。标题按语义断句截断（优先句末标点，其次逗号/分号等子句边界，再次闭合括号，最后才硬切加 `…`），不再出现「涨超3%！机器人ET…」这类把数字切半的行。分组主题按「标题命中词数」优先（标题没提到才算正文），治的是「军工电子板块走高，铖昌科技涨停」被正文里的「成交额」带偏分到券商/金融。企微群机器人的 markdown 不能内嵌图片，所以「词云」以热词权重榜（频次降序）承载；真图片词云需要另发 `msgtype=image` 消息并在香橙派上装 wordcloud + matplotlib + 中文字体，目前未做。
+`×N源` 表示轮内有 N 家源在报同一事件（多源互证是重要性的客观信号）。主题分组整块参与切块，即使单组超预算也不会把组标题和条目拆到两条消息里。标题按语义断句截断（优先句末标点，其次逗号/分号等子句边界，再次闭合括号，最后才硬切加 `…`；英文标题再退一档回到词边界，不会把 "To 52-Week Lows" 切成 "To 52"），不再出现「涨超3%！机器人ET…」这类把数字切半的行。分组主题按「标题命中词数」优先（标题没提到才算正文），治的是「军工电子板块走高，铖昌科技涨停」被正文里的「成交额」带偏分到券商/金融。企微群机器人的 markdown 不能内嵌图片，所以文本摘要里的「词云」是热词权重榜（频次降序）；真图片见下。
+
+**图片卡片（`news_aggregator/card.py`）**：同一批入选告警再渲染成一张 PNG，用独立的 `msgtype=image` 消息发出（base64+md5，官方限 2MB；超限或字体缺失即跳过图片、只发文本，绝不硬发）。版面自上而下是抬头（轮次 + 推送/过阈值/新增）→ 主线 → 多空 → 词云 → 按主题分组的条目 → 抑制构成页脚。条目里标题不截断、按像素折行（最多两行），指标行是「影响 · 情绪 · 事件类型 · 来源 · ×N源」，利好红/利空绿与 A 股习惯一致。依赖只有 Pillow + 一套中文字体（香橙派用系统 Noto Sans CJK SC，字体探测失败直接报错，不画方框），不需要 wordcloud/matplotlib。旋钮在 `config.yaml` 的 `monitor.rich_card:`——`enabled`（默认开）、`also_send_text`（默认 true：图片不能复制也不能检索，文本摘要继续发；确认图片够用后置 false 就一轮只一条图片消息）、`width`、`max_bytes`、`font_bold`/`font_regular`。本地看图不推送：`python news_aggregator/monitor.py --once --dry-run --save-card /tmp/card.png`。实测 11:36 那轮回放 8 条 / 6 主题 → 1080×1912、396KB；稀疏轮 2 条 → 1080×874、136KB。
 
 **生产部署（当前实际形态，香橙派 192.168.31.226）**：cron 单轮驱动，不是常驻进程。
 `scripts/cron_monitor.sh`（事件告警，每交易日 08:45 / 11:35 / 15:05 / 21:30 四档）与

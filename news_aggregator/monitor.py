@@ -23,6 +23,7 @@ import json
 import os
 import pathlib
 import sys
+import tempfile
 import time
 from datetime import datetime
 
@@ -33,7 +34,7 @@ sys.path.insert(0, str(ROOT))
 
 from news_aggregator.fetchers import SOURCES, filter_recent, apply_primary_keys, load_env_file, load_news_universe, fetch_symbol_news, fetch_us_symbol_news  # noqa: E402
 from news_aggregator.sentiment import score_text, configure_backend  # noqa: E402
-from news_aggregator.push import push_alert  # noqa: E402
+from news_aggregator.push import push_alert, push_image_alert  # noqa: E402
 from news_aggregator.run import compute_daily, dedupe, load_history, save_history, upsert_history, append_items_by_date  # noqa: E402
 from news_aggregator.boards import get_board_cache  # noqa: E402
 from news_aggregator.impact import keyword_match, match_themes, compute_impact  # noqa: E402
@@ -44,6 +45,7 @@ from news_aggregator.event_filter import volatility_ref  # noqa: E402
 from news_aggregator.alert_filter import (  # noqa: E402
     REASON_BUDGET, REASON_DUP_COOLDOWN, REASON_DUP_ROUND, REASON_THEME_QUOTA,
     Cooldown, fingerprint, select_alerts, summarize_suppressed)
+from news_aggregator import card            # noqa: E402  图片卡片（Pillow 仅 render 内导入）
 
 # Windows 控制台编码兼容（避免 emoji 等字符导致 print 崩溃）
 if hasattr(sys.stdout, "reconfigure"):
@@ -353,7 +355,8 @@ def clip_title(title: str, limit: int = 48) -> str:
 
     2026-11-09 实测：48 字硬截会产出「机器人ETF广发（15905…」「…保留10%的对…」这种
     半句话，手机上比一条长标题更难读。三档依次是：句末标点（第一处，后面通常是转述者
-    挂的盘面噪声整句丢掉）→ 句中停顿（limit 内最后一处）→ 括号收尾（保留括号）。
+    挂的盘面噪声整句丢掉）→ 句中停顿（limit 内最后一处）→ 括号收尾（保留括号）
+    → 英文词边界（刀口在单词中间时退回最近空格/连字符）。
     实测同一批标题改后落到「…加速布局机器人产业」这种成句位置。
     """
     t = (title or "").strip().replace("\n", " ")
@@ -370,6 +373,16 @@ def clip_title(title: str, limit: int = 48) -> str:
     closer = max((head.rfind(c) for c in _TITLE_CUT_AFTER), default=-1)
     if closer >= floor:
         return head[:closer + 1]
+    # 英文标题：刀口落在单词中间时退回最近的词边界（空格/连字符），
+    # 2026-11-09 生产 dry-run 实测「Why Did DKNG, SOUN, ORCL Stocks Plunge To 52-Wee…」
+    # 这种断词在手机上比长标题更难读；退回后是「…Stocks」。
+    if (limit < len(t) and head[-1].isascii() and head[-1].isalnum()
+            and t[limit].isascii() and t[limit].isalnum()):
+        space = head.rfind(" ")          # 空格是更强的词边界；连字符只在没有空格时才用，
+        if space < floor:                # 否则 "…To 52-Week" 会退化成 dangling 的 "…To 52"
+            space = head.rfind("-")
+        if space >= floor:
+            return head[:space].rstrip(" -")
     return head + "…"
 
 
@@ -461,9 +474,54 @@ def build_digest(entries: list, header: str = "", max_bytes: int = 3800) -> list
     return [f"{head}\n\n{c}" if head else c for c in chunks]
 
 
+def send_card(payload: dict, cfg: dict, dry_run: bool = False,
+              keep_path: str = "") -> bool:
+    """渲染并推送图片卡片；任何失败只记日志并返回 False（文本摘要照发）。
+
+    图片渲染在香橙派上是纯 CPU（Pillow，无系统依赖），一轮 ~0.3s；PNG 写临时目录，
+    不进 news/（cron 每轮提交 news/，把图片塞进去会污染仓库历史）。
+    keep_path 非空时把渲染后的 PNG 另存到该路径（dry-run / 排查用）。
+    """
+    rc = (cfg.get("monitor") or {}).get("rich_card") or {}
+    if not payload:
+        return False
+    tmp = None
+    try:
+        fd, tmp = tempfile.mkstemp(suffix=".png", prefix="fq_card_")
+        os.close(fd)
+        res = card.render(payload, tmp, width=int(rc.get("width", 1080)),
+                          font_bold=rc.get("font_bold") or "",
+                          font_regular=rc.get("font_regular") or "")
+        with open(tmp, "rb") as f:
+            png = f.read()
+        print(f"[monitor] 图片卡片 {res['width']}x{res['height']} / "
+              f"{len(png)} 字节"
+              + (f"，词云未放下 {len(res['skipped_cloud'])} 个词"
+                 if res.get("skipped_cloud") else ""))
+        if keep_path:
+            try:
+                with open(keep_path, "wb") as f:
+                    f.write(png)
+                print(f"[monitor] 卡片另存: {keep_path}")
+            except OSError as e:  # noqa: BLE001
+                print(f"[monitor] 卡片另存失败: {type(e).__name__}")
+        if dry_run:
+            return False
+        return push_image_alert(cfg, png)
+    except Exception as e:  # noqa: BLE001 — 富媒体是增量，绝不因为渲染炸掉告警
+        print(f"[monitor] 图片卡片失败（只发文本）: {type(e).__name__}: {e}")
+        return False
+    finally:
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+
 def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
              dry_run: bool, boards: dict, theme_boards: dict, top_n: int,
-             no_stock_impact: bool = False) -> int:
+             no_stock_impact: bool = False, card_path: str = "") -> int:
     """一轮：抓取 -> 去重 -> 影响分排序 -> 匹配 -> 告警。返回本轮新条目数。
 
     seen 为按加入顺序的 id 列表；函数内用 seen_set 保证 O(1) 查重，
@@ -632,6 +690,7 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     # 摘要按主题分组（2026-11-09 二版）：用户反馈平铺 15 条「一条一条抓不到重点」，
     # 改为抬头给主线（主题×条数）+ 多空统计，正文按主题分组、组内按影响分降序。
     groups: dict = {}          # 主题 -> [digest_line / 明细行]
+    card_groups: dict = {}     # 主题 -> [结构化条目]，图片卡片用（同一份数据两种载体）
     group_order: list = []     # 主题首次出现顺序（picked 已按影响分降序 ⇒ 组间即重要性序）
     group_tone: dict = {}      # 主题 -> {利好/利空/中性: n}
     tone_all: dict = {}
@@ -677,6 +736,11 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
             groups[key] = []
             group_order.append(key)
             group_tone[key] = {}
+        card_groups.setdefault(key, []).append({
+            "title": it.get("title") or text[:60],
+            "impact": c["impact"], "score": c["score"],
+            "ev": _event_short(c["ev"]), "source": it.get("source") or "",
+            "n_same": int(c.get("n_same") or 1)})
         groups[key].append(digest_line(it.get("title") or text[:60], c["impact"],
                                        c["score"], _event_short(c["ev"]),
                                        it.get("source") or "", c.get("n_same", 1)))
@@ -706,6 +770,7 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
 
     # ticker 告警（国会/内部人交易）：量小价值高，始终推送，单独成组排在最前
     ticker_lines: list = []
+    ticker_card: list = []
     for it in ticker_cands:
         title, content = build_ticker_alert(it)
         print("\n" + "=" * 60)
@@ -717,6 +782,10 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
                                         float(it.get("impact") or 0.0),
                                         float(it.get("sentiment") or 0.0),
                                         "", it.get("source") or ""))
+        ticker_card.append({"title": f"{it.get('ticker') or '-'} {it.get('title') or ''}",
+                            "impact": float(it.get("impact") or 0.0),
+                            "score": float(it.get("sentiment") or 0.0),
+                            "ev": label, "source": it.get("source") or "", "n_same": 1})
         pending.insert(0, (title, content))
         rows.append(alert_row(it, round_id, label, "", it.get("impact") or 0.0,
                               it.get("sentiment") or 0.0, True, "",
@@ -734,6 +803,14 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     if ticker_lines:
         entries.append(digest_group("另类数据（国会/内部人交易）", ticker_lines))
     entries += [digest_group(k, groups[k], _tone_str(group_tone[k])) for k in group_order]
+
+    # 图片卡片的数据（与文本摘要同源）：分组顺序、条目、方向统计都复用同一份，
+    # 保证「手机上看到的图」和「文本里读到的行」不会出现两套事实
+    card_group_list = [{"theme": k, "tone": group_tone[k], "items": card_groups[k]}
+                       for k in group_order]
+    if ticker_card:
+        card_group_list.insert(0, {"theme": "另类数据（国会/内部人交易）",
+                                   "tone": {}, "items": ticker_card})
 
     alerts = len(picked) + len(ticker_cands)
     group_counts = {k: sum(1 for l in groups[k] if l.startswith("·")) for k in group_order}
@@ -753,8 +830,20 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     ]
     header = "\n".join(head_lines)
     chunks = build_digest(entries, header)
+    rc_cfg = mon_cfg.get("rich_card") or {}
+    card_payload = None
+    if rc_cfg.get("enabled") and (picked or ticker_cands):
+        card_payload = card.build_payload(
+            round_id, {"pushed": alerts, "over": len(cands), "new": len(new_items)},
+            card_group_list, kw_count, tone_all,
+            {"同题": n_dup, "主题配额": n_quota, "注意力预算": n_budget}, top_keywords)
     n_msgs = 0
+    n_imgs = 0
     if entries:
+        img_sent = send_card(card_payload, cfg, dry_run=dry_run, keep_path=card_path) \
+            if card_payload else False
+        n_imgs = 1 if img_sent else 0
+        send_text = (not img_sent) or bool(rc_cfg.get("also_send_text", True))
         if dry_run:
             print("\n" + "#" * 60)
             for k, chunk in enumerate(chunks, 1):
@@ -762,6 +851,10 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
                       f"（{len(chunk.encode('utf-8'))} 字节）---")
                 print(chunk)
             print("#" * 60 + "\n")
+            n_msgs = len(chunks)
+        elif not send_text:
+            n_msgs = n_imgs          # 图片够用、文本没发：本轮就这一条消息
+            print("[monitor] 图片卡片已发送，also_send_text=false → 本轮不再发文本摘要")
         elif batch:
             for k, chunk in enumerate(chunks, 1):
                 push_alert(cfg, f"[事件告警汇总] {len(entries)} 条（{k}/{len(chunks)}）",
@@ -787,10 +880,11 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
             for it in ticker_cands:
                 cooldown.remember(it.get("title") or "", ts=now)
             cooldown.save()
+        img_note = f"（含图片 {n_imgs} 张）" if n_imgs else ""
         print(f"[monitor] 本轮新增 {len(new_items)} 条，过阈值候选 {len(cands)} 条"
               f"（低于阈值 {n_below} 条），推送 {alerts} 条"
               f"[同题抑制 {n_dup} / 配额 {n_quota} / 预算 {n_budget}]，"
-              f"企微消息 {n_msgs if not dry_run else len(chunks)} 条"
+              f"企微消息 {n_msgs if not dry_run else len(chunks)} 条{img_note}"
               f"{'（dry-run 未推送）' if dry_run else ''}")
     else:
         print("[monitor] 本轮无新增")
@@ -806,6 +900,8 @@ def main() -> int:
     ap.add_argument("--no-boards", action="store_true", help="跳过板块缓存构建")
     ap.add_argument("--no-stock-impact", action="store_true",
                     help="跳过 LLM 个股影响映射（API 不可用时避免每条新闻挂 90s）")
+    ap.add_argument("--save-card", default="", metavar="PNG",
+                    help="把本轮图片卡片另存到该路径（配合 --dry-run 预览富媒体，不发推送）")
     args = ap.parse_args()
 
     load_env_file(ROOT / ".env")
@@ -846,14 +942,14 @@ def main() -> int:
 
     if args.once:
         run_once(cfg, themes, seen, cold_start, args.dry_run, boards, theme_boards,
-                 top_n, args.no_stock_impact)
+                 top_n, args.no_stock_impact, args.save_card)
         return 0
 
     first = True
     while True:
         try:
             run_once(cfg, themes, seen, cold_start and first, args.dry_run, boards,
-                     theme_boards, top_n, args.no_stock_impact)
+                     theme_boards, top_n, args.no_stock_impact, args.save_card)
             first = False
             time.sleep(interval)
         except KeyboardInterrupt:

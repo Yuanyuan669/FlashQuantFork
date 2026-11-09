@@ -60,6 +60,44 @@ def get_webhook() -> str:
     return os.environ.get("WECOM_WEBHOOK", "")
 
 
+def send_wecom_image(webhook: str, png: bytes, max_bytes: int = 1_900_000) -> bool:
+    """向企业微信群机器人发送图片（msgtype=image：base64 + md5，官方限 2MB）。
+
+    群机器人的 markdown 不能内嵌图片，富媒体只能走这个独立消息类型；
+    超限或 webhook 未配置时返回 False，由调用方降级为纯文本，绝不硬发。
+    """
+    webhook = (webhook or "").strip()
+    if not webhook:
+        print("[push] 企业微信 webhook 未配置，图片跳过")
+        return False
+    if "://" not in webhook:
+        webhook = "https://" + webhook
+    n = len(png or b"")
+    if not n:
+        print("[push] 图片为空，跳过")
+        return False
+    if n > max_bytes:
+        print(f"[push] 图片 {n} 字节 > 上限 {max_bytes}，跳过（只发文本）")
+        return False
+    import base64
+    import hashlib
+
+    import requests
+    payload = {"msgtype": "image",
+               "image": {"base64": base64.b64encode(png).decode(),
+                         "md5": hashlib.md5(png).hexdigest()}}
+    try:
+        r = requests.post(webhook, json=payload, timeout=15)
+        data = r.json() if r.text else {}
+        ok = r.status_code == 200 and data.get("errcode") == 0
+        print(f"[push] 企业微信图片({n} 字节): {r.status_code} "
+              f"{json.dumps(data, ensure_ascii=False)}")
+        return ok
+    except Exception as e:  # noqa: BLE001
+        print(f"[push] 企业微信图片发送失败: {e}")
+        return False
+
+
 # ---------- Server酱（微信推送，无需VPN） ----------
 
 def send_serverchan(sendkey: str, title: str, content: str) -> bool:
@@ -156,4 +194,21 @@ def push_alert(cfg: dict, title: str, content: str, channel: str = "monitor") ->
         results["ntfy"] = send_ntfy(topic, title, content)
 
     return results
+
+
+def resolve_wecom_webhook(cfg: dict, channel: str = "monitor") -> str:
+    """企微 webhook 解析（密钥优先级 config -> 环境变量），与 push_alert 保持一致。"""
+    m = (cfg.get("monitor") or {})
+    if channel == "daily":
+        return ((cfg.get("news") or {}).get("wecom_webhook") or ""
+                or os.environ.get("WECOM_WEBHOOK_DAILY", "")
+                or os.environ.get("WECOM_WEBHOOK", ""))
+    return m.get("wecom_webhook") or "" or os.environ.get("WECOM_WEBHOOK", "")
+
+
+def push_image_alert(cfg: dict, png: bytes, channel: str = "monitor") -> bool:
+    """图片通道：只走企业微信（Server酱/Telegram/ntfy 的图片格式各异，未接）。"""
+    limit = int(((cfg.get("monitor") or {}).get("rich_card") or {}).get("max_bytes",
+                                                                       1_900_000))
+    return send_wecom_image(resolve_wecom_webhook(cfg, channel), png, max_bytes=limit)
 

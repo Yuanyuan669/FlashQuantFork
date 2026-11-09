@@ -121,6 +121,13 @@ monitor:
                                 # 2026-11-09 由 3 关到 0：这 5 行 ETF/概念板块涨幅是把正文噪声搬进
                                 # 摘要，与「抓重点」目标相反；个股维度改由 #17 图片卡片承载。
   digest_top_keywords: 8        # 抬头「热词」榜取前几个关键词（文本版词云，频次即权重）；0=不显示
+  rich_card:                    # 富媒体图片卡片（2026-11-09 新增）：词云 + 分组告警列表渲染成 PNG
+    enabled: true               # true 时先推 msgtype=image，再按下面开关决定是否补文本摘要
+    also_send_text: true        # 图片不能复制/检索，默认保留文本；确认图片够用后置 false 减一条消息
+    width: 1080                 # 卡片宽度（px）；高度按内容自适应
+    max_bytes: 1900000          # 超过即跳过图片只发文本（企微图片消息官方限 2MB）
+    font_bold: ""               # 空=自动探测（香橙派 Noto Sans CJK SC Bold → Windows 微软雅黑）
+    font_regular: ""            # 正文字体，空=用 font_bold 同族
   dedupe:                       # 同题去重：同一事件被多家源转述时只推一次
     enabled: true
     hours: 12                   # 跨轮冷却窗口：已推送事件的近似转述在此期间不再推

@@ -173,6 +173,17 @@ def test_clip_title_short_and_hard_cases():
     assert clip_title("无边界" * 30, 20).endswith("…")
 
 
+def test_clip_title_english_backs_off_word_boundary():
+    """2026-11-09 生产 dry-run 实测：英文逐股标题没有中文句读，硬切会砍出「52-Wee…」。"""
+    t = "Why Did DKNG, SOUN, ORCL Stocks Plunge To 52-Week Lows On Tuesday?"
+    out = clip_title(t, 48)
+    assert out == "Why Did DKNG, SOUN, ORCL Stocks Plunge To"  # 退回空格，不是 52- 的连字符
+    assert not out.endswith("…")
+    # 词边界太靠前（低于 limit*0.55）时宁可保留断词，也不把标题截成三个词
+    long_token = "Aa Bb " + "X" * 45 + " tail"
+    assert clip_title(long_token, 48).endswith("…")
+
+
 def _th(name, kws):
     return {"name": name, "keywords": kws, "macro": False}
 

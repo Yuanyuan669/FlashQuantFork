@@ -7,6 +7,10 @@ pandas==3.0.5
 numpy==2.5.2
 pyyaml==6.0.3
 requests==2.34.2
+# 企微图片卡片（news_aggregator/card.py）：只用 Pillow 画，不引入 wordcloud/matplotlib。
+# 另需系统里有一套中文字体（香橙派用 fonts-noto-cjk 的 Noto Sans CJK SC）；
+# 字体探测失败时 render() 直接报错，monitor 降级为只发文本，不会发方框图。
+pillow==13.0.0
 # FinBERT 情绪后端（aarch64 CPU；首装较慢，venv 持久化后一次性成本）
 transformers>=4.44.0
 torch>=2.2.0

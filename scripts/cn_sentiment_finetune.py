@@ -108,6 +108,10 @@ def main():
     ap.add_argument("--bucket", type=int, default=64,
                     help="长度分桶：每个桶含 bucket*batch_size 条样本，桶内按长度排序后切 batch")
     ap.add_argument("--grad-clip", type=float, default=1.0)
+    ap.add_argument("--class-weights", default="",
+                    help="三个逗号分隔的数（负/中/正），如 '0.202,2.382,0.417'；留空=不加权。"
+                         "用来纠正 FinFE（中性 26%）与新闻流（中性 71%）的先验错配；"
+                         "权重只用了 450 条的类别分布，不用逐条标签")
     ap.add_argument("--smoke", type=int, default=0,
                     help="冒烟：只取 N 条训练、200 条验证、跑 1 个 epoch（验证代码通路，产物丢弃）")
     ap.add_argument("--resume", action="store_true",
@@ -168,6 +172,16 @@ def main():
         log(f"[resume] 从 epoch {start_epoch} 继续，最佳 macro-F1={best_f1:.4f}")
 
     model.to(device)
+
+    cw = None
+    if args.class_weights.strip():
+        parts = [float(x) for x in args.class_weights.split(",")]
+        if len(parts) != 3:
+            raise SystemExit("--class-weights 需要三个逗号分隔的数（负/中/正）")
+        # 只改损失权重，不改验证集：验证分仍在 FinFE 分布上，加点权后 valid 分不能与
+        # 未加点权的 run 直接比，只能拿 410 条域内评测比。
+        cw = torch.tensor(parts, dtype=torch.float, device=device)
+        log(f"类别权重 负/中/正 = {parts}")
 
     def encode(texts):
         enc = tok(texts, add_special_tokens=True, truncation=True,
@@ -249,7 +263,7 @@ def main():
             x, m = to_tensors(tr_ids, idx)
             y = torch.tensor([tr_y[i] for i in idx], dtype=torch.long, device=device)
             out = model(input_ids=x, attention_mask=m)
-            loss = torch.nn.functional.cross_entropy(out.logits, y)
+            loss = torch.nn.functional.cross_entropy(out.logits, y, weight=cw)
 
             loss_sum += float(loss.detach()) * len(idx)
             n_seen += len(idx)

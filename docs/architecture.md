@@ -70,11 +70,15 @@ impact = w_authority × 来源权威度      # 央行/政府 1.0 → 通讯社 0
 
 ### 2.4 事件监测（`news_aggregator/monitor.py`）
 
-15 秒轮询常驻进程：并发抓取（线程池软超时）→ id 去重（`news/seen.json`，有界 2 万条 + 原子写入）→ 情绪打分 → 事件词匹配（`themes.yaml`）→ 影响分过滤（`impact_min`）→ 板块/个股映射（AKShare 概念板块，失败降级）→ 多通道告警。只告警不下单。
+并发抓取（线程池软超时）→ id 去重（`news/seen.json`，有界 2 万条 + 原子写入）→ 情绪打分 → 事件词匹配（`themes.yaml`）→ 影响分/情绪地板过滤（`impact_min` / `score_min`）→ **注意力预算**（`news_aggregator/alert_filter.py`）→ 板块/个股映射（AKShare 概念板块，失败降级）→ 多通道告警。只告警不下单。香橙派上由 cron 以 `--once` 单轮驱动（`scripts/cron_monitor.sh`），也支持 `poll_interval` 常驻轮询。
+
+注意力预算（2026-11-08）针对的是「过阈值的告警太多」而不是「阈值太低」：历史 104 轮实测均值 168.7 条告警/轮（早间积压轮 max 451），impact 中位 0.578 且 100% 紧贴旧阈值 0.45——调阈值没有区分度，缺的是按影响分取头部。筛选顺序：轮内同题聚类 → 跨轮冷却（`news/alert_state.json`，12h）→ 每主题配额 → 按 impact 取 top-N；个股影响映射的 LLM 调用只对入选条目发生（原先对全部候选调用）。同题判定用归一化标题的字符二元组 Jaccard ≥ 0.80 或字面子串包含（短标题需 ≥12 字），并要求两边数字串互为子集，防止模板化标题误并；不使用二元组重叠系数（英文归一化去空格后类型饱和，会把不相干长英文并到一起，误并方向是漏报）。104 轮全量回放：告警 17541→1472 条、企微消息 771→104 条（每轮恰好 1 条，单条最大 2871 字节），抑制构成 = 阈值 1718 / 轮内同题 967 / 跨轮冷却 26 / 主题配额 8412 / 注意力预算 4946，被预算挤掉的 impact≥p90(0.66) 条目 4 条，入选告警 impact 中位数 0.578→0.659。2026-11-09 香橙派 `--once --dry-run` 实测：新增 983 → 过阈值 198 → 推送 15，企微消息 1 条 / 3319 字节。
 
 ### 2.5 静态 Dashboard（`news_aggregator/dashboard.py`）
 
-读取 `news/raw/*.jsonl` + `daily_sentiment.json` + `alerts.jsonl`，渲染为零依赖单文件 HTML（`dashboard/index.html`）：KPI、市场情绪 SVG 折线、来源/情绪分布、可过滤高影响新闻表、告警历史。由 `run.py` 每日聚合后自动重建，或 `scripts/generate_dashboard.py --watch N` 常驻刷新。
+读取 `news/raw/*.jsonl` + `daily_sentiment.json` + `alerts.jsonl`，渲染为零依赖单文件 HTML（`dashboard/index.html`）：KPI、市场情绪 SVG 折线、来源/情绪分布、可过滤高影响新闻表、告警历史（只列 `pushed=true` 的行，同窗口被筛掉的候选数以角标给出）。由 `run.py` 每日聚合后自动重建，或 `scripts/generate_dashboard.py --watch N` 常驻刷新。
+
+`alerts.jsonl` 自 2026-11-08 起记录**全部过阈值候选**而非仅推送项：每行带 `pushed`(bool)、`reason`(`同题-轮内`/`同题-冷却`/`主题配额`/`注意力预算`)、`round`、`kind`；缺 `pushed` 字段的旧行按已推送处理。`scripts/alert_review.py` 据此对比「推送 vs 被筛掉」两组的次日 |收益|，用来验证注意力预算没有挤掉 alpha——若被筛掉组的 P(>3%) 反而更高，就该放宽 `max_alerts_per_round` / `max_per_theme`。
 
 ## 三、数据源清单
 

@@ -1,9 +1,13 @@
 """告警闭环回看：检验发出的告警「次日是否真的有大动静」。
 
-monitor.py 实际推送时把告警写入 news/alerts.jsonl；本脚本回看这些告警：
+monitor.py 每轮把过阈值的告警候选写入 news/alerts.jsonl：pushed=true 是实际推送的，
+pushed=false 是被同题去重/主题配额/注意力预算筛掉的（2026-11-08 起，附 reason 字段）。
+本脚本回看这些告警：
 - 告警日 -> 参考交易日 i（<= 告警日的最后交易日）-> 次日市场 |收益|（上证指数）；
 - 若告警带个股标签，另统计该股次日 |收益|；
-- 与「全样本基线」（P(|ret|>1.5%) / P(|ret|>3%)，见 impact_calibration.md）对比。
+- 与「全样本基线」（P(|ret|>1.5%) / P(|ret|>3%)，见 impact_calibration.md）对比；
+- 并对比「已推送 vs 被筛掉」两组：若被筛掉那组的次日动静不比推送组大，
+  说明注意力预算没有漏掉 alpha（这是压缩推送量的前提证据）。
 
 输出：results/alert_review.md；--push 时把摘要推送到企业微信。
 建议每日收盘后跑一次（deploy/chaogu-alert-review.timer，北京时间 17:30）。
@@ -19,7 +23,7 @@ import bisect
 import json
 import pathlib
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -127,13 +131,17 @@ def main() -> int:
     stock_rets = {it["symbol"]: stock_next_ret(it["symbol"]) for it in pool}
     settled = settle(alerts, idx_ret, idx_dates, stock_rets)
     n_pending = len(alerts) - len(settled)
-    print(f"[review] 告警 {len(alerts)} 条：已结算 {len(settled)} / 待次日数据 {n_pending}")
+    pushed_set = [a for a in settled if a.get("pushed", True) is not False]
+    dropped_set = [a for a in settled if a.get("pushed", True) is False]
+    print(f"[review] 告警 {len(alerts)} 条：已结算 {len(settled)}"
+          f"（推送 {len(pushed_set)} / 被筛掉 {len(dropped_set)}）/ 待次日数据 {n_pending}")
 
     if not settled:
         print("[review] 暂无已结算告警")
         return 0
 
-    vals = [a["next_abs"] for a in settled if a["next_abs"] is not None]
+    # 「总体」口径 = 实际推送出去的告警；被筛掉的另立一节对比（注意力预算是否漏 alpha）
+    vals = [a["next_abs"] for a in pushed_set if a["next_abs"] is not None]
     n_tail = sum(1 for v in vals if v > 0.015)
     n_big = sum(1 for v in vals if v > 0.03)
 
@@ -152,9 +160,10 @@ def main() -> int:
     lines.append("# 告警闭环回看报告")
     lines.append("")
     lines.append(f"> 生成时间：{datetime.now():%Y-%m-%d %H:%M:%S}")
-    lines.append(f"> 已结算告警 {len(settled)} 条（{n_pending} 条等待次日数据）")
+    lines.append(f"> 已结算告警 {len(settled)} 条（推送 {len(pushed_set)} / 被筛掉 {len(dropped_set)}；"
+                 f"{n_pending} 条等待次日数据）")
     lines.append("")
-    lines.append("## 总体")
+    lines.append("## 总体（实际推送的告警）")
     lines.append("")
     if vals:
         lines.append(f"- 次日 |收益| 均值 **{sum(vals)/len(vals)*100:.2f}%**")
@@ -164,12 +173,31 @@ def main() -> int:
         lines.append(f"- 判定：告警的「大动静」占比{'高于' if better else '低于'}基线——"
                      f"告警过滤{'有效' if better else '需要收紧'}。")
     lines.append("")
-    lines.append("## 按事件类型")
+    lines.append("## 按事件类型（全部候选，含被筛掉的）")
     lines.append("")
     lines.append("| 事件类型 | 告警数 | 次日|ret|均值 | P(>3%) |")
     lines.append("|---|---|---|---|")
     for typ, n, mean_v, big_v in type_rows:
         lines.append(f"| {typ} | {n} | {mean_v*100:.2f}% | {big_v*100:.1f}% |")
+    lines.append("")
+    lines.append("## 推送 vs 被筛掉（注意力预算验证）")
+    lines.append("")
+    lines.append("| 组别 | 条数 | 次日|ret|均值 | P(>1.5%) | P(>3%) |")
+    lines.append("|---|---|---|---|---|")
+    for name, grp in (("已推送", pushed_set), ("被筛掉", dropped_set)):
+        vs = [a["next_abs"] for a in grp if a.get("next_abs") is not None]
+        if vs:
+            lines.append(f"| {name} | {len(vs)} | {sum(vs)/len(vs)*100:.2f}% | "
+                         f"{sum(1 for v in vs if v > 0.015)/len(vs)*100:.1f}% | "
+                         f"{sum(1 for v in vs if v > 0.03)/len(vs)*100:.1f}% |")
+    lines.append("")
+    if not dropped_set:
+        lines.append("- 暂无被筛掉的告警（pushed=false 字段自 2026-11-08 起记录，需积累几个交易日）。")
+    else:
+        rc = Counter((a.get("reason") or "-") for a in dropped_set)
+        lines.append("- 筛掉原因：" + "，".join(f"{k} {v} 条" for k, v in rc.most_common()))
+        lines.append("- 判读：被筛掉组 P(>3%) 不高于已推送组 → 预算/去重没有漏掉大动静；"
+                     "若明显更高，应放宽 monitor.max_alerts_per_round 或 max_per_theme。")
     lines.append("")
     lines.append("- 对比 impact_calibration.md 的同类事件历史基线，持续积累后用于迭代告警阈值。")
     lines.append("")

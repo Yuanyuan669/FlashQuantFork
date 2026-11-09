@@ -3,7 +3,8 @@
 数据源（均为聚合器既有产物，不重复计算）：
 - news/raw/{date}.jsonl     原始新闻（含 impact / sentiment / impact_parts）
 - news/daily_sentiment.json 市场 + 个股日度情绪
-- news/alerts.jsonl         实际推送过的告警流水（monitor 非 dry-run 才写）
+- news/alerts.jsonl         告警流水：pushed=true 为实际推送，pushed=false 为被同题去重/
+                            主题配额/注意力预算筛掉的候选（monitor 非 dry-run 才写）
 
 输出：单文件 dashboard/index.html，零外部依赖（无 CDN / 无框架），
 纯标准库生成，Linux / Windows 通用；浏览器直接打开即可。
@@ -52,16 +53,24 @@ def _iter_raw(news_dir: Path, days: int) -> list:
     return items
 
 
-def _load_alerts(news_dir: Path, limit: int = 100) -> list:
+def _load_alerts(news_dir: Path, limit: int = 100, window: int = 4000) -> tuple:
+    """读 alerts.jsonl 尾部 window 行，返回 (实际推送的告警[:limit]（最新在前）, 落选条数)。
+
+    2026-11-08 起 monitor 会把「过了阈值但被同题去重/主题配额/注意力预算筛掉」的候选
+    也写进 alerts.jsonl（pushed=false + reason），页面只展示真正推送过的；旧行没有
+    pushed 字段，一律按已推送处理。
+    """
     path = news_dir / "alerts.jsonl"
     if not path.exists():
-        return []
-    out = []
+        return [], 0
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8").splitlines()[-window:]
     except OSError:
-        return []
-    for line in lines[-limit:]:
+        return [], 0
+    pushed, suppressed = [], 0
+    for line in reversed(lines):
+        if len(pushed) >= limit:
+            break      # 只统计「最近 limit 条已推送」覆盖的那段时间窗口
         line = line.strip()
         if not line:
             continue
@@ -69,9 +78,13 @@ def _load_alerts(news_dir: Path, limit: int = 100) -> list:
             a = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if isinstance(a, dict):
-            out.append(a)
-    return list(reversed(out))  # 最新在前
+        if not isinstance(a, dict):
+            continue
+        if a.get("pushed", True) is False:
+            suppressed += 1
+            continue
+        pushed.append(a)
+    return pushed, suppressed
 
 
 def _trend(series: dict, limit: int = 60) -> list:
@@ -83,7 +96,7 @@ def _trend(series: dict, limit: int = 60) -> list:
 def collect(news_dir: Path, days: int = 7, top: int = 100) -> dict:
     """聚合各数据源为渲染用 payload。"""
     items = _iter_raw(news_dir, days)
-    alerts = _load_alerts(news_dir)
+    alerts, alerts_suppressed = _load_alerts(news_dir)
 
     total = len(items)
     themed = [it for it in items if (it.get("impact_parts") or {}).get("theme", 0.0) > 0]
@@ -215,6 +228,7 @@ def collect(news_dir: Path, days: int = 7, top: int = 100) -> dict:
             "pos": pos,
             "neg": neg,
             "alerts": len(alert_rows),
+            "alerts_suppressed": alerts_suppressed,
             "sources": len(src),
         },
         "source_stats": source_stats,
@@ -326,7 +340,7 @@ svg text{fill:var(--dim);font-size:10px}
   </div>
 
   <div class="panel">
-    <h2>告警历史 <small>alerts.jsonl · 仅记录实际推送过的告警</small></h2>
+    <h2>告警历史 <small>alerts.jsonl · 只展示实际推送的告警（落选候选见 pushed=false 行）</small></h2>
     <div id="alerttable"></div>
   </div>
 </div>
@@ -483,12 +497,12 @@ renderNews();
 // 告警表（默认折叠）
 const alerts=DATA.alerts;
 document.getElementById('alerttable').innerHTML = alerts.length
-  ? `<details><summary style="cursor:pointer">共 ${alerts.length} 条（点击展开）</summary>
+  ? `<details><summary style="cursor:pointer">推送 ${alerts.length} 条 · 同窗口另有 ${((DATA.kpi||{}).alerts_suppressed)||0} 条候选被同题去重/配额/预算筛掉（点击展开）</summary>
      <table style="margin-top:8px"><tr><th>时间</th><th>主题</th><th>事件类型</th><th>影响分</th><th>情绪</th><th>来源</th><th>标的</th></tr>`+
     alerts.map(a=>`<tr><td style="white-space:nowrap">${esc(a.ts)}</td><td>${esc(a.theme)}</td><td>${esc(a.event_type)}</td>`+
     `<td>${a.impact.toFixed(3)}</td><td>${sentChip(a.score)}</td><td>${esc(a.source)}</td>`+
     `<td>${a.symbols.map(x=>'<span class="chip sym">'+esc(x)+'</span>').join('')}</td></tr>`).join('')+'</table></details>'
-  : '<div class="empty">暂无告警记录（alerts.jsonl 仅在非 dry-run 推送成功后写入）</div>';
+  : '<div class="empty">暂无告警记录（alerts.jsonl 由 monitor 非 dry-run 轮次写入）</div>';
 </script>
 </body>
 </html>

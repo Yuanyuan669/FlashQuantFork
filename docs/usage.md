@@ -34,13 +34,23 @@ python news_aggregator/run.py --rebuild-history   # 从 raw 全量重算历史�
 ```bash
 python news_aggregator/monitor.py               # 常驻轮询（默认 15s）
 python news_aggregator/monitor.py --once        # 只跑一轮
-python news_aggregator/monitor.py --dry-run     # 只检测不推送
+python news_aggregator/monitor.py --dry-run     # 只检测不推送，且不落盘（raw/history/seen/alerts/state 全跳过），打印摘要预览与字节数
 python news_aggregator/monitor.py --no-boards   # 跳过板块缓存（更快/离线）
 ```
 
-工作流：轮询快讯源 → id 去重（`news/seen.json`）→ 情绪打分 → 事件词匹配（`themes.yaml`）→ 板块/个股映射 → 多通道告警。首次运行只建立基线不告警历史旧闻。
+工作流：轮询快讯源 → id 去重（`news/seen.json`）→ 情绪打分 → 事件词匹配（`themes.yaml`）→ 影响分/情绪地板过滤 → **注意力预算**（同题去重 + 每主题配额 + 每轮 top-N，见 `news_aggregator/alert_filter.py`）→ 板块/个股映射（只对入选条目调 LLM）→ 多通道告警。首次运行只建立基线不告警历史旧闻。
 
-**Linux 常驻（推荐，ubuntu 22.04 arm64 实测可用）**：
+调节推送量的旋钮都在 `config.yaml` 的 `monitor:` 段：`impact_min` / `score_min`（入口阈值）、`max_alerts_per_round`（每轮条数上限）、`max_per_theme`（单主题配额）、`dedupe.hours`（跨轮冷却窗）、`digest_top_detail`（摘要里带明细行的条数）。被筛掉的候选仍写进 `news/alerts.jsonl`（`pushed=false` + `reason`），用 `python scripts/alert_review.py` 校验有没有把 alpha 挤掉。
+
+**生产部署（当前实际形态，香橙派 192.168.31.226）**：cron 单轮驱动，不是常驻进程。
+`scripts/cron_monitor.sh`（事件告警，每交易日 08:45 / 11:35 / 15:05 / 21:30 四档）与
+`scripts/cron_daily.sh`（收盘日报 + dashboard 刷新，18:30 一档），周末不跑；
+时刻表与代理/venv 约定写在两个脚本头部注释里。每轮开头 `git pull --ff-only`，
+跑完把 `news/`（与 `dashboard/index.html`）commit 回仓库——**所以提交即部署**。
+注意该链路没有文件锁：上一轮没跑完时下一轮会并发启动（2026-11-08 曾因此卡住 4 天），
+加 `flock -n` 是待办。
+
+**Linux 常驻（systemd/docker，备用方案）**：
 
 ```bash
 sudo bash scripts/install_service.sh /opt/chaogu   # systemd 自启 + 崩溃重启
@@ -67,7 +77,7 @@ python scripts/generate_dashboard.py --days 14 --top 100
 python scripts/generate_dashboard.py --watch 60    # 每 60s 重建（配合 monitor 常驻）
 ```
 
-页面包含：KPI 卡片、市场情绪折线、来源/情绪分布、可过滤高影响新闻表、告警历史。零外部依赖，浏览器直接打开。
+页面包含：KPI 卡片、市场情绪折线、来源/情绪分布、可过滤高影响新闻表、告警历史（只展示实际推送的告警，同窗口被同题去重/配额/预算筛掉的候选数在标题栏给出）。零外部依赖，浏览器直接打开。
 
 托管到 GitHub Pages：在仓库 Settings → Pages 选择 `master` 分支 `/dashboard` 目录即可（产物已随仓库提交）。
 

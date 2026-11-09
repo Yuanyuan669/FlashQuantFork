@@ -11,7 +11,10 @@
 - 复用 news_aggregator/fetchers.py 的多源快讯、sentiment.py 情绪打分、
   impact.py 影响分排序、push.py 推送。
 - seen.json 持久化去重：重启不重复告警；首次运行只建立基线、不告警历史旧闻。
-- 新增：按影响分降序告警，低于 monitor.impact_min 的主题告警会被过滤。
+- 按影响分降序告警，低于 monitor.impact_min 的主题告警会被过滤。
+- 注意力预算（alert_filter.py）：过阈值的候选再经「同题去重 → 每主题配额 →
+  每轮 top-N」筛选，只有选中的进摘要推送；落选者也写入 alerts.jsonl（pushed=false）
+  供 dashboard / alert_review 回看，验证预算是否漏掉 alpha。
 - 只告警，不自动下单。
 """
 
@@ -38,6 +41,9 @@ from news_aggregator.stock_impact import map_news_to_stocks  # noqa: E402
 from news_aggregator.entity_link import link_items, stats_line  # noqa: E402
 from news_aggregator.event_filter import classify as classify_event  # noqa: E402
 from news_aggregator.event_filter import volatility_ref  # noqa: E402
+from news_aggregator.alert_filter import (  # noqa: E402
+    REASON_BUDGET, REASON_DUP_COOLDOWN, REASON_DUP_ROUND, REASON_THEME_QUOTA,
+    Cooldown, fingerprint, select_alerts, summarize_suppressed)
 
 # Windows 控制台编码兼容（避免 emoji 等字符导致 print 崩溃）
 if hasattr(sys.stdout, "reconfigure"):
@@ -46,19 +52,54 @@ if hasattr(sys.stdout, "reconfigure"):
 NEWS_DIR = ROOT / "news"
 SEEN_PATH = NEWS_DIR / "seen.json"
 ALERTS_PATH = NEWS_DIR / "alerts.jsonl"
+STATE_PATH = NEWS_DIR / "alert_state.json"   # 跨轮同题冷却状态（已推送标题指纹）
 SEEN_MAX = 20000  # 只保留最近 N 条 id，防无限增长
 
 
-def log_alert(alert: dict) -> None:
-    """把实际发出的告警追加到 news/alerts.jsonl（供 alert_review.py 回看次日波动）。"""
+def log_alerts(rows: list) -> None:
+    """把本轮告警流水追加到 news/alerts.jsonl（供 dashboard / alert_review.py 回看）。
+
+    一次 open 写完整轮，避免逐条打开文件；rows 里既含实际推送的（pushed=true），
+    也含被注意力预算/同题去重/主题配额筛掉的候选（pushed=false + reason），
+    这样才能事后验证「少推的那些是否真的没有 alpha」。
+    """
+    if not rows:
+        return
     NEWS_DIR.mkdir(exist_ok=True)
     with open(ALERTS_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(alert, ensure_ascii=False) + "\n")
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 
 def load_config() -> dict:
     with open(ROOT / "config.yaml", "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def alert_row(it: dict, round_id: str, theme: str, event_type: str, impact: float,
+              score: float, pushed: bool, reason: str = "", kind: str = "event") -> dict:
+    """alerts.jsonl 的一行。
+
+    2026-11-08 起新增 round/kind/pushed/reason 四个字段：pushed=false 的行是
+    「过了阈值但被同题去重/主题配额/注意力预算筛掉」的候选，留着做闭环验证
+    （scripts/alert_review.py 对比两组次日波动，确认少推的那批确实没 alpha）。
+    旧行没有 pushed 字段，消费方一律按 pushed=true 处理。
+    """
+    return {
+        "news_id": it.get("id"),
+        "ts": datetime.now().isoformat(timespec="seconds"),
+        "round": round_id,
+        "date": it.get("date") or "",
+        "theme": theme,
+        "event_type": event_type,
+        "impact": float(impact or 0.0),
+        "score": float(score or 0.0),
+        "source": it.get("source") or "",
+        "symbols": it.get("symbols") or [],
+        "kind": kind,
+        "pushed": bool(pushed),
+        "reason": reason or "",
+    }
 
 
 def load_themes(path: str) -> list:
@@ -183,6 +224,22 @@ def fmt_boards(themes_list: list, hits, boards, theme_boards, top_n: int) -> lis
     return lines
 
 
+def _event_note(ev) -> str:
+    """详细告警里的事件类型行：类型(方向，是否有 alpha)。"""
+    if not ev:
+        return ""
+    typ, direction, whitelisted = ev
+    return f"{typ}({direction}，{'有alpha' if whitelisted else '无alpha'})"
+
+
+def _event_short(ev) -> str:
+    """摘要里的事件类型（去掉 alpha 标注，省字节）。"""
+    if not ev:
+        return ""
+    typ, direction, _wl = ev
+    return f"{typ}({direction})"
+
+
 def build_alert(item: dict, score: float, theme: dict, hits: list,
                 boards: dict, theme_boards: dict, top_n: int,
                 stock_map: list | None = None, event_note: str = "",
@@ -248,35 +305,56 @@ def build_ticker_alert(item: dict) -> tuple[str, str]:
     return title, "\n".join(lines)
 
 
-def build_digest(entries: list, max_bytes: int = 3800) -> list:
-    """把 [(title, content), ...] 告警压缩成摘要块列表。
+def digest_entry(title: str, theme_name: str, impact: float, score: float,
+                 ev_short: str = "", source: str = "", ts: str = "",
+                 detail: str = "", title_chars: int = 64) -> str:
+    """单条告警的摘要文本（标题行 + 元数据行 [+ 明细行]，约 180 字节）。
 
-    每条取标题 + 情绪分/影响分行 + 原文行；按 UTF-8 字节数切块
-    （企微单条消息上限 4096 字节，留余量），块数不限。
+    旧格式每条 ~330 字节（标题行 + 情绪分行 + 原文行 ≤160 字），瘦身后同样的
+    企微消息能装近两倍条目；配合每轮 top-N 预算，一轮通常只需 1 条消息。
     """
-    lines = []
-    for title, content in entries:
-        part = (title or "").strip()
-        body = (content or "").splitlines()
-        score = next((l.strip() for l in body if "情绪分" in l), "")
-        origin = next((l.strip() for l in body if "原文" in l), "")
-        if score:
-            part += "\n" + score
-        if origin:
-            part += "\n" + origin
-        if part:
-            lines.append(part)
+    t = (title or "").strip().replace("\n", " ")
+    if len(t) > title_chars:
+        t = t[:title_chars] + "…"
+    meta = [theme_name or "-"]
+    meta.append(f"影响{float(impact or 0.0):.2f}")
+    meta.append(f"情绪{float(score or 0.0):+.2f}")
+    if ev_short:
+        meta.append(ev_short)
+    if source:
+        meta.append(source)
+    if ts:
+        meta.append(ts)
+    out = f"**{t}**\n{' · '.join(meta)}"
+    if detail:
+        out += "\n" + detail.strip()
+    return out
+
+
+def build_digest(entries: list, header: str = "", max_bytes: int = 3800) -> list:
+    """把摘要条目文本列表切成企微 markdown 消息块（每块 <= max_bytes 字节）。
+
+    header 会附加到每一块开头，保证任意一条消息单独转发也能看懂；切块时
+    先扣掉 header 的字节数，避免加完抬头反而超过企微 4096 字节上限。
+    """
+    entries = [e for e in (entries or []) if (e or "").strip()]
+    if not entries:
+        return []
+    head = (header or "").strip()
+    body_budget = max_bytes
+    if head:
+        body_budget = max(200, max_bytes - len(head.encode("utf-8")) - 2)
     chunks, cur = [], ""
-    for line in lines:
+    for line in entries:
         cand = f"{cur}\n\n{line}" if cur else line
-        if cur and len(cand.encode("utf-8")) > max_bytes:
+        if cur and len(cand.encode("utf-8")) > body_budget:
             chunks.append(cur)
             cur = line
         else:
             cur = cand
     if cur:
         chunks.append(cur)
-    return chunks
+    return [f"{head}\n\n{c}" if head else c for c in chunks]
 
 
 def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
@@ -344,113 +422,228 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     weights = imp_cfg.get("weights") or None
     window_minutes = int(imp_cfg.get("window_minutes", 60))
     burst_cap = int(imp_cfg.get("burst_cap", 4))
-    impact_min = float((cfg.get("monitor") or {}).get("impact_min", 0.0))
-    score_min = float((cfg.get("monitor") or {}).get("score_min", 0.0))
-    si_cfg = (cfg.get("monitor") or {}).get("stock_impact") or {}
+    mon_cfg = cfg.get("monitor") or {}
+    impact_min = float(mon_cfg.get("impact_min", 0.0))
+    score_min = float(mon_cfg.get("score_min", 0.0))
+    si_cfg = mon_cfg.get("stock_impact") or {}
     si_enabled = bool(si_cfg.get("enabled", False)) and not no_stock_impact
     si_max = int(si_cfg.get("max_stocks", 6))
+    # 聚合推送：一轮内所有告警攒起来，run 末尾按摘要块合并推送（避免刷屏+企微限流）
+    batch = bool(mon_cfg.get("push_batch", True))
+    # 注意力预算（2026-11-08）：历史 104 轮实测均值 168.7 条告警/轮（早间积压轮 max 451），
+    # 旧摘要格式共推 771 条企微消息 / 25 个交易日 ≈ 31 条/日，用户反馈刷屏。
+    # 改为「同题去重 → 每主题配额 → 每轮 top-N」后回放为 1472 条告警 / 104 条消息（每轮 1 条，
+    # 单条最大 2871 字节），被预算挤掉的 impact≥p90(0.66) 高影响条目 4 条。
+    # 2026-11-09 香橙派 --once --dry-run 实测：新增 983 → 过阈值 198 → 推送 15，
+    # 企微消息 1 条 / 3319 字节（同题抑制 18 / 配额 43 / 预算 122）。
+    # 落选者仍写 alerts.jsonl（pushed=false）供 alert_review.py 闭环验证。
+    max_alerts = int(mon_cfg.get("max_alerts_per_round", 15))
+    max_per_theme = int(mon_cfg.get("max_per_theme", 3))
+    dd_cfg = mon_cfg.get("dedupe") or {}
+    cooldown = Cooldown(
+        hours=float(dd_cfg.get("hours", 12)),
+        jac_threshold=float(dd_cfg.get("jac_threshold", 0.80)),
+        require_same_numbers=bool(dd_cfg.get("require_same_numbers", True)),
+        enabled=bool(dd_cfg.get("enabled", True)),
+        substring_containment=bool(dd_cfg.get("substring_containment", True)),
+        min_contain_chars=int(dd_cfg.get("min_contain_chars", 12)))
+    if not dry_run:
+        try:
+            cooldown.load(STATE_PATH).prune()
+        except Exception as e:  # noqa: BLE001
+            print(f"[monitor] 同题冷却状态载入失败（按空状态继续）: {type(e).__name__}")
+    top_detail = int(mon_cfg.get("digest_top_detail", 3))
+    now = datetime.now()
+    round_id = now.isoformat(timespec="minutes")
+
     new_items = compute_impact(new_items, themes, weights, window_minutes, burst_cap)
 
-    alerts = 0
-    # 聚合推送：一轮内所有告警攒起来，run 末尾按摘要块合并推送（避免刷屏+企微限流）
-    batch = bool((cfg.get("monitor") or {}).get("push_batch", True))
-    pending: list = []
+    # ---- 阶段 1：收集候选。这里刻意不做 LLM 个股映射（旧实现对每条命中都调一次，
+    #      一轮 169 条就是 169 次；现在只对最终选中的十几条调）----
+    cands: list = []
+    ticker_cands: list = []
+    n_below = 0
     for it in new_items:
         seen.append(it["id"])
         seen_set.add(it["id"])
-        # 另类数据（国会/内部人交易）→ ticker 告警，不参与主题词匹配
+        # 另类数据（国会/内部人交易）→ ticker 告警，不参与主题词匹配、不占主题预算
         kind = it.get("kind")
         if kind in ("congress_trade", "insider_trade") and it.get("ticker"):
             if _politician_allowed(it.get("politician"), cfg):
-                alerts += 1
-                title, content = build_ticker_alert(it)
-                print("\n" + "=" * 60)
-                print(title)
-                print(content)
-                print("=" * 60 + "\n")
-                if not dry_run:
-                    if batch:
-                        pending.append((title, content))
-                    else:
-                        push_alert(cfg, title, content)
+                ticker_cands.append(it)
             continue
         text = f"{it.get('title', '')} {it.get('content', '')}"
         score = it.get("sentiment", score_text(text))
         matched = match_themes(text, themes)
-        # 事件类型标注（白名单=有 alpha，非白名单=无 alpha/反向）
-        ev = classify_event(text)
-        event_note = ""
-        if ev:
-            typ, direction, whitelisted = ev
-            event_note = f"{typ}({direction}，{'有alpha' if whitelisted else '无alpha'})"
-        # 历史波动参考（影响分校准：同类事件次日平均波动与大动静概率）
-        vol_ref = volatility_ref(text)
-        # 命中主题时可选：LLM 个股影响映射（每条新闻只调一次，多主题复用；失败不阻塞告警）
-        stock_map = []
-        if si_enabled and matched:
-            try:
-                stock_map = map_news_to_stocks(text, max_stocks=si_max)
-            except Exception as e:  # noqa: BLE001
-                print(f"  [monitor] 个股映射失败: {type(e).__name__}")
         if not matched:
             continue
-        imp = it.get("impact", 0.0)
+        imp = float(it.get("impact") or 0.0)
         if impact_min > 0 and imp < impact_min:
+            n_below += 1
             continue
         # 情绪地板：无方向性（词典/模型均未命中）的告警对用户是噪声
         if score_min > 0 and abs(float(score)) < score_min:
+            n_below += 1
             continue
-        alerts += 1
+        cands.append({
+            "item": it,
+            "impact": imp,
+            "score": float(score),
+            "matched": matched,
+            "themes": [th["name"] for th, _ in matched],
+            # 事件类型标注（白名单=有 alpha，非白名单=无 alpha/反向）
+            "ev": classify_event(text),
+            # 历史波动参考（影响分校准：同类事件次日平均波动与大动静概率）
+            "vol_ref": volatility_ref(text),
+            "fp": fingerprint(it.get("title") or (it.get("content") or "")[:80]),
+        })
+
+    # ---- 阶段 2：筛选 ----
+    picked, suppressed = select_alerts(
+        cands, max_alerts=max_alerts, max_per_theme=max_per_theme, cooldown=cooldown,
+        jac_threshold=cooldown.jac_threshold,
+        require_same_numbers=cooldown.require_same_numbers,
+        substring_containment=cooldown.substring_containment,
+        min_contain_chars=cooldown.min_contain_chars)
+    sup_sum = summarize_suppressed(suppressed)
+    n_dup = sup_sum.get(REASON_DUP_ROUND, 0) + sup_sum.get(REASON_DUP_COOLDOWN, 0)
+    n_quota = sup_sum.get(REASON_THEME_QUOTA, 0)
+    n_budget = sup_sum.get(REASON_BUDGET, 0)
+
+    # ---- 阶段 3：只对选中的做重活并生成告警 ----
+    entries: list = []    # 聚合摘要条目文本
+    pending: list = []    # [(title, content)]，非聚合模式逐条推送用
+    rows: list = []       # alerts.jsonl 流水（含落选候选）
+    # 明细行去重：板块明细只取决于命中的主题，同轮两条同主题新闻会渲染出
+    # 一模一样的「人工智能(概念)：奥雅股份 +12.5%…」（2026-11-09 dry-run 实测），
+    # 合并成一条消息后这种逐字重复特别显眼且白占字节，故同轮只保留首次出现。
+    seen_details: set = set()
+
+    for i, c in enumerate(picked):
+        it = c["item"]
+        text = f"{it.get('title', '')} {it.get('content', '')}"
         # 合并告警：一条新闻只推一次，多主题合并展示（旧行为每主题各推一条，刷屏严重）
         merged_theme = {
-            "name": "、".join(th["name"] for th, _ in matched),
-            "macro": any(th.get("macro") for th, _ in matched),
+            "name": "、".join(c["themes"]),
+            "macro": any(th.get("macro") for th, _ in c["matched"]),
         }
-        merged_hits = []
-        seen_h = set()
-        for _th, hs in matched:
+        merged_hits, seen_h = [], set()
+        for _th, hs in c["matched"]:
             for h in hs:
                 if h not in seen_h:
                     seen_h.add(h)
                     merged_hits.append(h)
-        title, content = build_alert(it, score, merged_theme, merged_hits, boards,
-                                     theme_boards, top_n, stock_map, event_note,
-                                     vol_ref, [th for th, _ in matched])
+        # LLM 个股影响映射：只对选中的告警调用（失败不阻塞）
+        stock_map = []
+        if si_enabled:
+            try:
+                stock_map = map_news_to_stocks(text, max_stocks=si_max)
+            except Exception as e:  # noqa: BLE001
+                print(f"  [monitor] 个股映射失败: {type(e).__name__}")
+        title, content = build_alert(it, c["score"], merged_theme, merged_hits, boards,
+                                     theme_boards, top_n, stock_map,
+                                     _event_note(c["ev"]), c["vol_ref"],
+                                     [th for th, _ in c["matched"]])
         print("\n" + "=" * 60)
         print(title)
         print(content)
         print("=" * 60 + "\n")
-        if not dry_run:
-            # 告警闭环：记录实际发出的告警，供 scripts/alert_review.py 回看次日波动
-            log_alert({
-                "news_id": it.get("id"),
-                "ts": datetime.now().isoformat(timespec="seconds"),
-                "date": it.get("date") or "",
-                "theme": merged_theme["name"],
-                "event_type": (vol_ref or {}).get("typ", ""),
-                "impact": float(it.get("impact", 0.0)),
-                "score": float(score),
-                "source": it.get("source") or "",
-                "symbols": it.get("symbols") or [],
-            })
-            if batch:
-                pending.append((title, content))
-            else:
-                push_alert(cfg, title, content)
+        # 摘要明细行：给影响分最高、且明细互不相同的前 top_detail 条附板块/个股，
+        # 避免整轮都被拉长（配额按「不同明细」计数，重复的板块明细不占名额）
+        detail = ""
+        if len(seen_details) < top_detail:
+            bl = fmt_boards([th for th, _ in c["matched"]], merged_hits, boards,
+                            theme_boards, top_n)
+            if bl:
+                detail = bl[0]
+            elif stock_map:
+                r = stock_map[0]
+                detail = (f"- {r.get('name')}({r.get('code')}) {r.get('direction')}："
+                          f"{r.get('reason')}")
+        if detail and detail in seen_details:
+            detail = ""                      # 同轮已展示过同一份板块明细，不再重复
+        elif detail:
+            seen_details.add(detail)
+        entries.append(digest_entry(it.get("title") or text[:60], merged_theme["name"],
+                                    c["impact"], c["score"], _event_short(c["ev"]),
+                                    it.get("source") or "",
+                                    str(it.get("ts") or it.get("date") or "")[:16],
+                                    detail))
+        pending.append((title, content))
+        rows.append(alert_row(it, round_id, merged_theme["name"],
+                              (c["vol_ref"] or {}).get("typ", ""), c["impact"],
+                              c["score"], True, ""))
 
-    if batch and pending and not dry_run:
-        chunks = build_digest(pending)
-        for k, chunk in enumerate(chunks, 1):
-            digest_title = f"[事件告警汇总] 本轮 {len(pending)} 条（{k}/{len(chunks)}）"
-            push_alert(cfg, digest_title, chunk)
+    # ticker 告警（国会/内部人交易）：量小价值高，始终推送，排在摘要最前
+    for it in ticker_cands:
+        title, content = build_ticker_alert(it)
+        print("\n" + "=" * 60)
+        print(title)
+        print(content)
+        print("=" * 60 + "\n")
+        label = "国会交易" if it.get("kind") == "congress_trade" else "内部人交易"
+        entries.insert(0, digest_entry(
+            f"{it.get('ticker') or '-'} {it.get('title') or ''}", label,
+            float(it.get("impact") or 0.0), float(it.get("sentiment") or 0.0),
+            "", it.get("source") or "", str(it.get("date") or "")[:16]))
+        pending.insert(0, (title, content))
+        rows.append(alert_row(it, round_id, label, "", it.get("impact") or 0.0,
+                              it.get("sentiment") or 0.0, True, "",
+                              kind=it.get("kind") or "ticker"))
+
+    # 落选候选入库（pushed=false + reason）：dashboard 默认不显示，
+    # alert_review.py 用它对比「推了的 vs 没推的」次日波动，验证预算没有漏掉 alpha
+    for c, reason in suppressed:
+        it = c["item"]
+        rows.append(alert_row(it, round_id, "、".join(c["themes"]),
+                              (c["vol_ref"] or {}).get("typ", ""), c["impact"],
+                              c["score"], False, reason))
+
+    alerts = len(entries)
+    header = (f"**[事件告警汇总] {round_id[5:].replace('T', ' ')} · "
+              f"新增 {len(new_items)} / 过阈值 {len(cands)} / 推送 {len(entries)}**\n"
+              f"抑制：同题 {n_dup} · 主题配额 {n_quota} · 预算 {n_budget}"
+              f"（落选明细见 dashboard 告警历史）")
+    chunks = build_digest(entries, header)
+    n_msgs = 0
+    if entries:
+        if dry_run:
+            print("\n" + "#" * 60)
+            for k, chunk in enumerate(chunks, 1):
+                print(f"--- dry-run 摘要预览 {k}/{len(chunks)}"
+                      f"（{len(chunk.encode('utf-8'))} 字节）---")
+                print(chunk)
+            print("#" * 60 + "\n")
+        elif batch:
+            for k, chunk in enumerate(chunks, 1):
+                push_alert(cfg, f"[事件告警汇总] {len(entries)} 条（{k}/{len(chunks)}）",
+                           chunk)
+            n_msgs = len(chunks)
+        else:
+            for title, content in pending:
+                push_alert(cfg, title, content)
+            n_msgs = len(pending)
 
     if new_items:
-        append_raw(new_items)
-        update_history(new_items)
-        save_seen(seen)
-        print(f"[monitor] 本轮新增 {len(new_items)} 条，命中告警 {alerts} 条"
-              f"{'（dry-run 未推送）' if dry_run else ''}"
-              f"{'，聚合为 ' + str(len(build_digest(pending))) + ' 条摘要推送' if batch and pending and not dry_run else ''}")
+        if dry_run:
+            # dry-run 只读：不写 raw/history/seen，也不写告警流水与冷却状态，
+            # 否则会「吃掉」真实轮次的新增（旧实现在 dry-run 下同样落盘，是个坑）
+            print(f"[monitor] dry-run：跳过 raw/history/seen/alerts 落盘")
+        else:
+            append_raw(new_items)
+            update_history(new_items)
+            save_seen(seen)
+            log_alerts(rows)
+            for c in picked:
+                cooldown.remember(fp=c["fp"], ts=now)
+            for it in ticker_cands:
+                cooldown.remember(it.get("title") or "", ts=now)
+            cooldown.save()
+        print(f"[monitor] 本轮新增 {len(new_items)} 条，过阈值候选 {len(cands)} 条"
+              f"（低于阈值 {n_below} 条），推送 {alerts} 条"
+              f"[同题抑制 {n_dup} / 配额 {n_quota} / 预算 {n_budget}]，"
+              f"企微消息 {n_msgs if not dry_run else len(chunks)} 条"
+              f"{'（dry-run 未推送）' if dry_run else ''}")
     else:
         print("[monitor] 本轮无新增")
     return len(new_items)
@@ -460,7 +653,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--once", action="store_true", help="只跑一轮即退")
     ap.add_argument("--interval", type=int, default=None, help="轮询秒数")
-    ap.add_argument("--dry-run", action="store_true", help="只检测不推送")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="只检测不推送：跳过 raw/history/seen/alerts/state 全部落盘，打印摘要预览与字节数")
     ap.add_argument("--no-boards", action="store_true", help="跳过板块缓存构建")
     ap.add_argument("--no-stock-impact", action="store_true",
                     help="跳过 LLM 个股影响映射（API 不可用时避免每条新闻挂 90s）")

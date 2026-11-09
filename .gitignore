@@ -7,7 +7,7 @@ __pycache__/
 paper/
 # 监测器运行时状态
 news/rescore_state.json
-# seen.json 需要跨 run 持久化（CI 模式下它是去重与告警基线），必须提交
+# seen.json（id 去重基线）与 alert_state.json（同题冷却窗）需要跨 run 持久化，必须提交
 news/boards_cache.json
 .env
 .env.*

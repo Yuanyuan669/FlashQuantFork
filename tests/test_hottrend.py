@@ -2,7 +2,7 @@
 
 2026-11-09 生产日志：知乎/头条 失败(NameError)、抖音 失败(JSONDecodeError)。
 前两者是移植时丢掉 enumerate、循环体仍引用 rank_i（上游响应格式并没有变），
-抖音则是端点要求 webapp 公共参数 + Referer，缺任一个返回 HTTP 200 + 空正文。
+抖音则是移植时丢掉 JCP 原版的 Referer 头，缺它返回 HTTP 200 + 空正文。
 本文件用真实响应结构做 fixture 锁死这三条，不联网。
 """
 
@@ -53,8 +53,8 @@ def test_toutiao_ranks_are_filled(monkeypatch):
     assert items[2]["url"] == "https://www.toutiao.com/trending/c3/"
 
 
-def test_douyin_needs_params_and_referer(monkeypatch):
-    """抖音：URL 必须带 webapp 公共参数，且必须带 Referer，否则上游返回空正文。"""
+def test_douyin_needs_referer_only(monkeypatch):
+    """抖音：实测 Referer 是唯一必要条件（webapp 参数加不加无差别，JCP 原版也只带 Referer）。"""
     calls = []
     payload = {"data": {"word_list": [
         {"word": f"抖音热点{i}", "hot_value": 90000 + i} for i in range(1, 4)
@@ -63,7 +63,7 @@ def test_douyin_needs_params_and_referer(monkeypatch):
     items = H.fetch_douyin()
     _assert_ranks_1_to_n(items, 3)
     url, headers = calls[0]
-    assert "device_platform=webapp" in url and "aid=6383" in url
+    assert "?" not in url                          # 不再堆无用的公共参数
     assert headers.get("Referer") == "https://www.douyin.com/hot"
 
 

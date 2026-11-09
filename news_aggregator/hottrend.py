@@ -112,20 +112,14 @@ def fetch_zhihu() -> list:
 
 
 def fetch_douyin() -> list:
-    """抖音热点：data.word_list[] -> word/hot_value。
+    """抖音热点：data.word_list[] -> word/hot_value。需 Referer（JCP 原版同样只带 Referer）。
 
-    端点要求 webapp 公共参数 **且** Referer=https://www.douyin.com/hot：
-    实测缺 Referer 时返回 HTTP 200 但 body 长度为 0（content-type=text/plain），
-    json() 直接抛 JSONDecodeError；带 Referer 返回 application/json / 51 条。
+    2026-11-09 香橙派实测（三种请求形态各跑一次）：Referer 是**唯一**必要条件——
+    裸 URL + Referer 返回 46 条；只加 webapp 公共参数而不带 Referer，返回 HTTP 200 但
+    body 零长度（content-type=text/plain），json() 抛 JSONDecodeError；参数本身加不加无差别。
     """
-    data = _get(
-        "https://www.douyin.com/aweme/v1/web/hot/search/list/"
-        "?device_platform=webapp&aid=6383&channel=channel_pc_web"
-        "&detail_list=1&source=6&platform=PC&browser_language=zh-CN"
-        "&browser_platform=Win32&browser_name=Chrome&browser_online=true"
-        "&engine_name=Blink&os_name=1&os_version=10.0",
-        headers={"Referer": "https://www.douyin.com/hot"},
-    )
+    data = _get("https://www.douyin.com/aweme/v1/web/hot/search/list/",
+                headers={"Referer": "https://www.douyin.com/hot"})
     out = []
     for rank_i, row in enumerate((data.get("data") or {}).get("word_list") or [], 1):
         word = str(row.get("word") or "").strip()

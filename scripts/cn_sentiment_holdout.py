@@ -84,6 +84,9 @@ def main():
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
         device = torch.device(args.device)
+    torch.manual_seed(args.seed)                 # 不设的话 dropout 走全局 RNG，同 seed 也跑不出同一组数
+    if device.type == "cuda":
+        torch.cuda.manual_seed_all(args.seed)
     log(f"设备 {device}")
 
     tr_all = load_jsonl(args.train_jsonl)

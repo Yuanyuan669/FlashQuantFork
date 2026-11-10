@@ -170,6 +170,21 @@ def main():
     print("任一方对（不可达上限）{}/{} = {:.3f}；两方都错 {} 条".format(
         oracle, n, oracle / n, both_wrong))
 
+    print("\n== 9. 词典候选 + 模型确认（级联）==")
+    for cls in (0, 2):
+        cand = [r for r in rows if int(r["lex"]) == cls]
+        conf = [r for r in cand if int(r["model"]) == cls]
+        gold_cls = sum(1 for r in rows if r["gold"] == cls)
+        if not cand:
+            continue
+        prec = sum(1 for r in conf if r["gold"] == cls) / len(conf) if conf else 0.0
+        rec = sum(1 for r in conf if r["gold"] == cls) / gold_cls if gold_cls else 0.0
+        base = sum(1 for r in cand if r["gold"] == cls) / len(cand)
+        print("{}：词典候选 {} 条（精度 {:.3f}），模型确认 {} 条（{:.0%}）→ 精度 {:.3f}，"
+              "召回 {}/{} = {:.3f}".format(
+                  LAB[cls], len(cand), base, len(conf), len(conf) / len(cand),
+                  prec, sum(1 for r in conf if r["gold"] == cls), gold_cls, rec))
+
 
 if __name__ == "__main__":
     main()

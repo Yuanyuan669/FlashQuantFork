@@ -125,6 +125,7 @@ def main():
     tag = "按日期" if args.group_by == "date" else "分层随机"
     log(f"切分：{tag}，{len(folds)} 折，各折条数 {[len(f) for f in folds]}")
     oof = [1] * len(keep)
+    oof_probs = [[0.0, 1.0, 0.0] for _ in range(len(keep))]
     t_all = time.time()
     for fi, val_idx in enumerate(folds):
         val_set = set(val_idx)
@@ -166,8 +167,10 @@ def main():
                 batch = val_idx[k: k + 64]
                 x, m = to_tensors(batch)
                 lg = model(input_ids=x, attention_mask=m).logits
+                pr = torch.softmax(lg, dim=-1).tolist()
                 for r, i in enumerate(batch):
                     oof[i] = int(lg[r].argmax().item())
+                    oof_probs[i] = [round(x, 4) for x in pr[r]]
         log(f"  折 {fi + 1}/{len(folds)}：训练 {len(tr_idx)} 条，验证 {len(val_idx)} 条，"
             f"累计 {time.time() - t_all:.1f}s")
 
@@ -208,11 +211,11 @@ def main():
 
     if args.dump_rows:
         with open(args.dump_rows, "w", encoding="utf-8") as f:
-            for r, g, p_, lx, s in zip(keep, gold, oof, lex_pred, lex_scores):
+            for r, g, p_, pb, lx, s in zip(keep, gold, oof, oof_probs, lex_pred, lex_scores):
                 f.write(json.dumps({"id": r.get("id"), "stratum": r.get("stratum"),
                                     "sample": r.get("sample"), "neg_hint": r.get("neg_hint"),
                                     "date": r.get("date"), "title": r.get("title"),
-                                    "gold": g, "model": p_, "lex": lx,
+                                    "gold": g, "model": p_, "probs": pb, "lex": lx,
                                     "lex_score": round(s, 4)}, ensure_ascii=False) + "\n")
         log(f"已写 {args.dump_rows}")
     if args.json_out:

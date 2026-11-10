@@ -139,18 +139,21 @@ def main():
 
     def predict(ids, n):
         out = [1] * n
+        probs = [[0.0, 1.0, 0.0] for _ in range(n)]
         model.eval()
         with torch.no_grad():
             for k in range(0, n, 64):
                 batch = list(range(k, min(k + 64, n)))
                 x, m = to_tensors(batch, ids)
                 lg = model(input_ids=x, attention_mask=m).logits
+                pr = torch.softmax(lg, dim=-1).tolist()
                 for r, i in enumerate(batch):
                     out[i] = int(lg[r].argmax().item())
-        return out
+                    probs[i] = [round(x, 4) for x in pr[r]]
+        return out, probs
 
-    te_pred = predict(te_ids, len(te))
-    tr_pred = predict(tr_ids, len(tr))          # 样本内，只用来确认训练有没有学到
+    te_pred, te_probs = predict(te_ids, len(te))
+    tr_pred, _ = predict(tr_ids, len(tr))          # 样本内，只用来确认训练有没有学到
     te_lex_score = [score_text_zh(t) for t in te_titles]
     te_lex = [lex_label(s, 0.0) for s in te_lex_score]
 
@@ -190,10 +193,10 @@ def main():
 
     if args.dump_rows:
         with open(args.dump_rows, "w", encoding="utf-8") as f:
-            for r, g, p_, lx, s in zip(te, te_gold, te_pred, te_lex, te_lex_score):
+            for r, g, p_, pb, lx, s in zip(te, te_gold, te_pred, te_probs, te_lex, te_lex_score):
                 f.write(json.dumps({"id": r.get("id"), "stratum": r.get("stratum"),
                                     "neg_hint": r.get("neg_hint"), "title": r.get("title"),
-                                    "gold": g, "model": p_, "lex": lx,
+                                    "gold": g, "model": p_, "probs": pb, "lex": lx,
                                     "lex_score": round(s, 4)}, ensure_ascii=False) + "\n")
         log(f"已写 {args.dump_rows}")
     if args.json_out:

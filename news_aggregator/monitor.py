@@ -32,7 +32,7 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from news_aggregator.fetchers import SOURCES, filter_recent, apply_primary_keys, load_env_file, load_news_universe, fetch_symbol_news, fetch_us_symbol_news  # noqa: E402
+from news_aggregator.fetchers import SOURCES, MONITOR_SKIP, filter_recent, apply_primary_keys, load_env_file, load_news_universe, fetch_symbol_news, fetch_us_symbol_news  # noqa: E402
 from news_aggregator.sentiment import score_text, configure_backend  # noqa: E402
 from news_aggregator.push import push_alert, push_image_alert  # noqa: E402
 from news_aggregator.run import compute_daily, dedupe, load_history, save_history, upsert_history, append_items_by_date  # noqa: E402
@@ -145,7 +145,8 @@ def fetch_new_items(enabled_sources: list | None, max_workers: int = 4,
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     jobs = [(name, fn) for name, fn in SOURCES
-            if not enabled_sources or name in enabled_sources]
+            if name not in MONITOR_SKIP
+            and (not enabled_sources or name in enabled_sources)]
 
     def _safe(name, fn):
         try:

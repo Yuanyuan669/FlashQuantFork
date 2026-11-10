@@ -5,7 +5,7 @@ set -u
 # 代理环境（与 runner .env 同款：国外源走 mihomo，国内源直连）
 export http_proxy=http://127.0.0.1:7890
 export https_proxy=http://127.0.0.1:7890
-export no_proxy=localhost,127.0.0.1,eastmoney.com,cls.cn,sina.com.cn,10jqka.com.cn,futunn.com,wallstcn.com,jin10.com,gov.cn
+export no_proxy=localhost,127.0.0.1,eastmoney.com,cls.cn,sina.com.cn,10jqka.com.cn,futunn.com,wallstcn.com,jin10.com,gov.cn,bargo.ai
 cd /home/orangepi/flashquant || exit 1
 export HF_ENDPOINT=https://hf-mirror.com
 

@@ -44,6 +44,7 @@ flowchart LR
 - 归一化字段：`id, ts, date, source, title, content, url, symbols, lang, kind, ticker, politician`
 - 每源独立容错：单源失败/超时不影响整体；抓取走 akshare 封装的公开端点 + Google News RSS + 官方 RSS/JSON
 - 免 key 为主：仅 Quiver / Bargo / Congress / FRED（可选）/ Finnhub（回填用）需要注册，缺 key 自动跳过或降级
+- Bargo 免费档按**行数**计额（100 行/天，一次 `limit=50` 就吃掉一半）：只在 daily 轮抓一次，`MONITOR_SKIP` 让 4 轮 monitor 跳过；额度耗尽回 429（日志记 HTTP 状态，不再静默成 0 条）；`bargo.ai` 走直连（代理出口 IP 的额度常被别人用光）
 - 政策公告源：gov.cn 已下线 RSS，现用列表页 AJAX 数据端点 `zhengce/zuixin/ZUIXINZHENGCE.json`（旧 RSS 保留为回退）
 
 ### 2.2 情绪引擎（`news_aggregator/sentiment.py`）

@@ -237,6 +237,8 @@ def fetch_bargo():
         r = requests.get(f"{base.rstrip('/')}/trades", headers=headers,
                          params={"limit": 50}, timeout=15)
         if r.status_code != 200:
+            # 免费端点有每日行预算（100 行/天），额度耗尽回 429；别静默成 0 条。
+            print(f"[fetch] Bargo国会交易: HTTP {r.status_code} {r.text[:120]}")
             return []
         data = r.json()
         rows = data.get("trades") or data.get("data") or []
@@ -588,6 +590,11 @@ SOURCES = [
     ("政策公告", fetch_policy),
     ("社媒热搜", fetch_hottrend),
 ]
+
+
+# 免费端点有每日行预算的源：monitor 4 轮跳过，只由 daily 全量轮抓一次。
+# Bargo 免费档 100 行/天，而一次抓取 limit=50——多轮会把额度跑光，之后整天 429。
+MONITOR_SKIP = {"Bargo国会交易"}
 
 
 # ---- 个股新闻（为每只标的抓取并预打标签） ----

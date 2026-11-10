@@ -328,6 +328,39 @@ def build_report(day: str, items, stats, market, sym_out, summary=None) -> str:
     return "\n".join(lines)
 
 
+def build_push_digest(day: str, items, stats, market, summary=None, top_n: int = 6) -> str:
+    """推送用的短版简报：控制在一条消息内。
+
+    完整日报（来源明细、个股情绪、Top15）照旧写 news/report/*.md 和 dashboard；
+    推送只保留「量级一行 + 综述 + 市场情绪 3 日 + 高影响 6 条」。个股情绪分不进推送：
+    它是逐只清单、且和 TM 盘后总结的持仓块重复度高，注意力预算划不来。
+    """
+    lines = [f"**财经新闻简报 {day}**", f"抓取 {len(items)} 条 ｜ {len(stats)} 个来源"]
+    if summary:
+        brief = " ".join(str(summary).split())
+        lines += ["", "**今日综述**", brief[:240] + ("…" if len(brief) > 240 else "")]
+    if market:
+        recent = sorted(market, reverse=True)[:3]
+        lines += ["", "**市场情绪（近 {} 日）**".format(len(recent)),
+                  " ｜ ".join(f"{d[5:]} {market[d]:+.3f}" for d in recent)]
+    ranked = sorted(items, key=lambda x: x.get("impact", 0.0), reverse=True)[:top_n]
+    if ranked:
+        lines += ["", "**今日高影响**"]
+        for i, it in enumerate(ranked, 1):
+            text = (it.get("title") or it.get("content") or "").strip().replace("\n", " ")
+            if len(text) > 48:
+                text = text[:48] + "…"
+            try:
+                sc = float(it.get("sentiment"))
+                tag = "利好" if sc > 0 else ("利空" if sc < 0 else "中性")
+            except (TypeError, ValueError):
+                tag = "-"
+            lines.append("{}. `{:.2f}` {} · {} · {}".format(
+                i, it.get("impact", 0.0), tag, it.get("source") or "-", text))
+    lines += ["", f"> 来源明细、个股情绪与全文见 news/report/{day}.md"]
+    return "\n".join(lines)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=date.today().strftime("%Y%m%d"))
@@ -420,7 +453,8 @@ def main() -> int:
     print(f"[agg] daily_sentiment -> {NEWS_DIR / 'daily_sentiment.json'}")
 
     if args.push:
-        push_alert(cfg, "财经新闻舆情日报", md, channel="daily")
+        digest = build_push_digest(args.date, items, stats, market, summary)
+        push_alert(cfg, "财经新闻简报", digest, channel="daily")
 
     # 静态 Dashboard 重建（best-effort，失败不影响聚合主流程）
     try:

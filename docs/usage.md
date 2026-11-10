@@ -29,6 +29,8 @@ python news_aggregator/run.py --rebuild-history   # 从 raw 全量重算历史�
 - `news/report/{date}.md` —— 当日舆情日报（Markdown）
 - `dashboard/index.html` —— 静态可视化页面（每次聚合后自动重建）
 
+`--push` 发的是**短版简报**（`run.build_push_digest`，一条消息约 1 KB）：抓取量一行 → LLM 综述（截 240 字）→ 市场情绪近 3 日 → 高影响 Top 6（影响分 / 方向 / 来源 / 标题 48 字）→ 指向当日日报文件。来源明细表、个股情绪分、Top 15 仍只写在 `news/report/{date}.md` 与 dashboard：个股逐只清单和 TM 盘后总结的持仓块高度重复，不进推送（2026-11-10 反馈）。
+
 ## 三、实时事件监测（24/7 常驻）
 
 ```bash

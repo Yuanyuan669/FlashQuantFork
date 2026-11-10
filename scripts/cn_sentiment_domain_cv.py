@@ -96,6 +96,9 @@ def main():
                     help="label = 按(标签,分层)分层随机折（默认，评估同分布内插）；"
                          "date = 按日期整组切折（评估没见过的日期，部署口径，更严）")
     ap.add_argument("--json-out", default="")
+    ap.add_argument("--dump-rows", default="",
+                    help="逐条 OOF 落盘（jsonl）。合并了多个来源的标注时用它按子集切开复算，"
+                         "整体数字混了抽样偏置没有意义")
     args = ap.parse_args()
 
     import torch
@@ -203,6 +206,15 @@ def main():
         for k, v in r["stratum"].items():
             log(f"    {k}: n={v['n']} acc={v['acc']:.3f} 方向acc={v['dir_acc']:.3f}")
 
+    if args.dump_rows:
+        with open(args.dump_rows, "w", encoding="utf-8") as f:
+            for r, g, p_, lx, s in zip(keep, gold, oof, lex_pred, lex_scores):
+                f.write(json.dumps({"id": r.get("id"), "stratum": r.get("stratum"),
+                                    "sample": r.get("sample"), "neg_hint": r.get("neg_hint"),
+                                    "date": r.get("date"), "title": r.get("title"),
+                                    "gold": g, "model": p_, "lex": lx,
+                                    "lex_score": round(s, 4)}, ensure_ascii=False) + "\n")
+        log(f"已写 {args.dump_rows}")
     if args.json_out:
         json.dump({"lexicon_version": LEXICON_VERSION, "results": results},
                   open(args.json_out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)

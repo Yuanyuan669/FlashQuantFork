@@ -1,0 +1,180 @@
+{"id": 0, "date": "2026-10-08", "source": "个股新闻", "stratum": "个股", "title": "三年累亏过亿，紫光国芯未如实披露独立性不足被监管警示", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 1, "date": "2026-09-03", "source": "东方财富个股新闻", "stratum": "个股", "title": "恒瑞医药市值蒸发近500亿：员工持股目标下调，离职补偿累计近3亿", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 2, "date": "2026-08-29", "source": "东方财富公告", "stratum": "公告", "title": "孚能科技:孚能科技2026年半年度报告摘要", "label": -1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 3, "date": "2026-10-30", "source": "东财全球资讯", "stratum": "宏观", "title": "美银全球研究下调德国股票评级", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 4, "date": "2026-08-23", "source": "东财全球资讯", "stratum": "宏观", "title": "智光电气：终止发行股份及支付现金购买资产并募集配套资金事项", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 5, "date": "2026-07-26", "source": "东方财富个股新闻", "stratum": "个股", "title": "光伏“三巨头”合计预亏超百亿 市场需求拐点何时到来", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 6, "date": "2026-10-16", "source": "IMF/世界银行", "stratum": "其他", "title": "World Bank’s October 2026 assessment and Fitch’s upgrade to a positive outlook: Has Nigeria turned the corner?", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 7, "date": "2026-09-03", "source": "财联社", "stratum": "其他", "title": "贷款方首次详述欺诈指控 Radiant World涉嫌以假合同和已付款发票融资", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 8, "date": "2026-11-03", "source": "东方财富个股新闻", "stratum": "个股", "title": "界面早报 | 三部门召开支持资本市场两项工具座谈会；Anthropic第三季度净亏损233亿美元", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 9, "date": "2026-08-26", "source": "同花顺7x24", "stratum": "其他", "title": "杰华特：2026年上半年净利润亏损5.2亿元，2025年同期亏损2.95亿元", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 10, "date": "2026-09-04", "source": "东方财富个股新闻", "stratum": "个股", "title": "统联精密：多位股东计划减持公司股份", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 11, "date": "2026-10-30", "source": "同花顺7x24", "stratum": "其他", "title": "芯原股份：2026年第三季度归母净利润亏损2.57亿元", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 12, "date": "2026-10-02", "source": "东财全球资讯", "stratum": "宏观", "title": "花旗将耐克目标价从39美元下调至32美元", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 13, "date": "2026-10-14", "source": "东方财富个股新闻", "stratum": "个股", "title": "超1亿元！“牛散”陈发树减持301050", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 14, "date": "2026-07-29", "source": "东方财富公告", "stratum": "公告", "title": "红宝丽:关于第一大股东与实际控制人、部分董事及高级管理人员减持公司股份计划期限届满暨实施情况的公告", "label": -1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 15, "date": "2026-06-18", "source": "东方财富公告", "stratum": "公告", "title": "润达医疗:股东及董高减持股份结果公告", "label": -1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 16, "date": "2026-11-05", "source": "社媒热搜", "stratum": "其他", "title": "谁在害怕“字节时间”", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 17, "date": "2026-06-05", "source": "东方财富个股新闻", "stratum": "个股", "title": "5月：资产质量、违规跨区经营处罚大增，多家机构因违规考核被罚", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 18, "date": "2026-10-19", "source": "Finnhub", "stratum": "其他", "title": "Intuit to Acquire Sequence to Boost AI-Powered Mid-Market Offerings", "label": 2, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 19, "date": "2026-07-23", "source": "东方财富个股新闻", "stratum": "个股", "title": "保利发展：2026年上半年净利润同比减少38.96%", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 20, "date": "2026-07-03", "source": "东方财富个股新闻", "stratum": "个股", "title": "财经调查|水井坊高档酒年销量锐减，股票市值年内蒸发逾25%", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 21, "date": "2026-10-11", "source": "个股新闻", "stratum": "个股", "title": "突发！万亿AI服务器龙头被美国启动337调查|盘后公告集锦", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 22, "date": "2026-07-08", "source": "东方财富个股新闻", "stratum": "个股", "title": "港股解禁潮：智谱低开高走，MiniMax大考前股价飙升", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 23, "date": "2026-06-05", "source": "东方财富个股新闻", "stratum": "个股", "title": "医疗创新ETF平安(516820)涨超1.2%，创新药出海热度不断高涨", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 24, "date": "2026-07-13", "source": "东方财富公告", "stratum": "公告", "title": "迈瑞医疗:关于控股股东部分股份解除质押的公告", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 25, "date": "2026-08-04", "source": "东方财富个股新闻", "stratum": "个股", "title": "今日共45只个股发生大宗交易，总成交7.28亿元", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 26, "date": "2026-06-04", "source": "东方财富个股新闻", "stratum": "个股", "title": "拟减持超1亿股！这家银行刚解禁，大股东就抛出套现计划", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 27, "date": "2026-07-07", "source": "东方财富个股新闻", "stratum": "个股", "title": "智谱首批限售股解禁在即，持股近七成基石投资者表态“长期看好”", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 28, "date": "2026-09-06", "source": "东方财富个股新闻", "stratum": "个股", "title": "涉嫌严重违纪违法，中建集团副总经理陈勇被查，任期未满一年", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 29, "date": "2026-09-13", "source": "东方财富个股新闻", "stratum": "个股", "title": "下周29股面临解禁！沐曦股份解禁规模68.29亿元", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 30, "date": "2026-06-01", "source": "东方财富公告", "stratum": "公告", "title": "奥尼电子:关于部分董事、高级管理人员减持股份的预披露公告", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 31, "date": "2026-06-09", "source": "东方财富个股新闻", "stratum": "个股", "title": "天德钰股东拟减持不超2.49%股份，A股5家公司减持计划一览", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 32, "date": "2026-10-22", "source": "同花顺7x24", "stratum": "其他", "title": "华宏科技：华宏集团等减持计划实施完成，合计减持1494.37万股", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 33, "date": "2026-09-21", "source": "东财全球资讯", "stratum": "宏观", "title": "焦作万方：深交所终止审核公司发行股份购买资产申请", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 34, "date": "2026-08-01", "source": "东方财富个股新闻", "stratum": "个股", "title": "能源早报｜国家电网原董事长辛保安被查；我国新核准8台核电机组", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 35, "date": "2026-08-13", "source": "东方财富个股新闻", "stratum": "个股", "title": "371只股短线走稳 站上五日均线", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 36, "date": "2026-10-22", "source": "东方财富公告", "stratum": "公告", "title": "龙洲股份:关于控股孙公司变更诉讼请求暨重大诉讼的公告", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 37, "date": "2026-10-07", "source": "东方财富个股新闻", "stratum": "个股", "title": "002388筹划重大资产重组，明起停牌", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 38, "date": "2026-10-20", "source": "中国人民银行", "stratum": "宏观", "title": "LPR为何17个月不变？专家：短期内下调可能性不大", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 39, "date": "2026-09-15", "source": "东方财富个股新闻", "stratum": "个股", "title": "ST天际：公司六氟磷酸锂主要客户为宁德时代、比亚迪、新宙邦等行业大企业，回款正常，不存在坏账风险", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 40, "date": "2026-10-13", "source": "富途牛牛", "stratum": "其他", "title": "奈飞拿下2030年男足世界杯独家转播权 覆盖全部104场比赛", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 41, "date": "2026-08-04", "source": "东方财富个股新闻", "stratum": "个股", "title": "押注双抗千亿赛道！美国AI药企砸22亿美元买中国创新药", "label": 2, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 42, "date": "2026-09-09", "source": "东财全球资讯", "stratum": "宏观", "title": "毕得医药：控股股东及一致行动人拟合计减持不超3.01%股份", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 43, "date": "2026-08-21", "source": "东方财富公告", "stratum": "公告", "title": "中兵红箭:关于2026年半年度计提信用及资产减值损失的公告", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 44, "date": "2026-10-14", "source": "同花顺7x24", "stratum": "其他", "title": "OpenAI一工程师涉嫌安装窃听设备被捕", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 45, "date": "2026-10-01", "source": "东财全球资讯", "stratum": "宏观", "title": "摩根士丹利将苹果目标价由360美元下调至355美元", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 46, "date": "2026-11-08", "source": "东方财富个股新闻", "stratum": "个股", "title": "百合股份：董事王文通未减持公司股份并提前终止减持计划", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 47, "date": "2026-11-05", "source": "东方财富个股新闻", "stratum": "个股", "title": "“色彩之变”：周期极限压缩，汽车涂料巨头如何应对", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 48, "date": "2026-10-19", "source": "东方财富个股新闻", "stratum": "个股", "title": "康龙化成累计募资逾120亿元，实控人一致行动人两轮减持近8亿元", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 49, "date": "2026-10-26", "source": "华尔街见闻", "stratum": "其他", "title": "中国央行：9月政府债券净融资15362.2亿元，同比增加3469.6亿元", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 50, "date": "2026-07-28", "source": "东方财富个股新闻", "stratum": "个股", "title": "润达医疗：股东刘辉所持100万股被冻结", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 51, "date": "2026-08-04", "source": "东方财富个股新闻", "stratum": "个股", "title": "新工程量减少，项目结算收益未达目标，中国建筑兴业上半年业绩预减 年内股价跌45%", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 52, "date": "2026-09-08", "source": "东方财富个股新闻", "stratum": "个股", "title": "公告精选：深交所拟决定终止*ST萃华上市交易；本川智能拟20亿元投建AI算力高多层、高阶HDI电路板项目", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 53, "date": "2026-09-30", "source": "东方财富公告", "stratum": "公告", "title": "宁德时代:董事会薪酬与考核委员会关于2026年A股第二期员工持股计划相关事项的核查意见", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 54, "date": "2026-07-01", "source": "东方财富个股新闻", "stratum": "个股", "title": "规范建筑市场出借资质、围标串标、转包挂靠、违法分包等，最高法出台司法解释", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 55, "date": "2026-09-11", "source": "东财全球资讯", "stratum": "宏观", "title": "富淼科技：实控人承诺特定期间不减持公司股票", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 56, "date": "2026-06-07", "source": "东方财富个股新闻", "stratum": "个股", "title": "孚能科技：多位股东计划减持公司股份", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 57, "date": "2026-09-02", "source": "东财全球资讯", "stratum": "宏观", "title": "凯瑞德：股东农谷集团7月3日、9月1日累计减持354.6万股", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 58, "date": "2026-09-05", "source": "东方财富个股新闻", "stratum": "个股", "title": "中国建筑集团有限公司党组成员、副总经理陈勇被查", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 59, "date": "2026-07-12", "source": "东方财富个股新闻", "stratum": "个股", "title": "“挖人”挖出3.82亿赔偿，创世纪又因信披违规再收警示函，账户被冻两个月才披露", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 60, "date": "2026-10-11", "source": "财联社", "stratum": "其他", "title": "韩股市场成交额已较5月底的峰值暴跌70%", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 61, "date": "2026-10-08", "source": "东财全球资讯", "stratum": "宏观", "title": "北京商报侃股：解禁不等于减持", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 62, "date": "2026-11-06", "source": "东方财富个股新闻", "stratum": "个股", "title": "南向资金追踪｜本周净卖出超32亿港元 加仓三大ETF减持小米及中芯国际", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 63, "date": "2026-08-29", "source": "东方财富个股新闻", "stratum": "个股", "title": "华夏银行上半年净利同比减少18.35%，不良贷款率微降至1.5%", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 64, "date": "2026-08-13", "source": "东方财富个股新闻", "stratum": "个股", "title": "资本集团旗舰基金新动作：加仓中际旭创 减持贵州茅台", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 65, "date": "2026-08-05", "source": "东方财富个股新闻", "stratum": "个股", "title": "创世纪：夏军质押1.02亿股用于个人资金需求", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 66, "date": "2026-08-20", "source": "东方财富个股新闻", "stratum": "个股", "title": "科大讯飞：上半年净利润亏损2.04亿元 同比减亏", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 67, "date": "2026-10-01", "source": "个股新闻", "stratum": "个股", "title": "营利双增下，东阿阿胶现金流暴跌九成：阶段性松绑还是旧模式回潮？", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 68, "date": "2026-09-10", "source": "东方财富个股新闻", "stratum": "个股", "title": "公告精选：远望谷筹划收购光通信器件模块设备公司光泰通信；*ST清越触及交易类强制退市情形", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 69, "date": "2026-10-31", "source": "个股新闻", "stratum": "个股", "title": "Q3亏损环比收窄 隆基绿能迎来“修复起点”", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 70, "date": "2026-07-17", "source": "东方财富个股新闻", "stratum": "个股", "title": "五粮液：董事胡波因工作变动辞职", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 71, "date": "2026-07-14", "source": "东方财富个股新闻", "stratum": "个股", "title": "7月14日晚间重要公告 | 因涉嫌挪用资金 600730董事长被刑事立案", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 72, "date": "2026-06-01", "source": "东方财富个股新闻", "stratum": "个股", "title": "强制压货经销商亏损：迈瑞医疗“罗生门”", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 73, "date": "2026-09-15", "source": "华尔街见闻", "stratum": "其他", "title": "摩根大通调查显示：美债客户大举涌入空头头寸", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 74, "date": "2026-07-02", "source": "东方财富个股新闻", "stratum": "个股", "title": "迈瑞医疗：Magnifice（HK）质押960.00万股用于其他", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 75, "date": "2026-10-22", "source": "东方财富个股新闻", "stratum": "个股", "title": "雪人集团发布三季报：多因共振致亏损，长期增长逻辑未改", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 76, "date": "2026-08-07", "source": "东方财富个股新闻", "stratum": "个股", "title": "钶锐锶回复科创板IPO二轮问询", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 77, "date": "2026-09-24", "source": "同花顺7x24", "stratum": "其他", "title": "国盛证券：拟罚款29万元并暂停新开证券账户3个月", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 78, "date": "2026-11-05", "source": "东方财富个股新闻", "stratum": "个股", "title": "铁流股份：公司无逾期担保", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 79, "date": "2026-10-21", "source": "东财全球资讯", "stratum": "宏观", "title": "乌克兰总统泽连斯基称乌克兰将支持沿当前战线实现冻结", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 80, "date": "2026-10-20", "source": "东方财富个股新闻", "stratum": "个股", "title": "从5亿美元估值到破产清算 一家明星机器人公司的六年", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 81, "date": "2026-06-08", "source": "东方财富个股新闻", "stratum": "个股", "title": "深入实施提振消费专项行动 积极拓展有效投资空间（调查研究 凝聚共识） ——台盟中央开展二〇二六年度重点考察调研", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 82, "date": "2026-10-27", "source": "社媒热搜", "stratum": "其他", "title": "微软向6万名员工开放自愿离职方案", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 83, "date": "2026-09-09", "source": "东财全球资讯", "stratum": "宏观", "title": "博迈医疗IPO9月16日上会", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 84, "date": "2026-09-25", "source": "东方财富个股新闻", "stratum": "个股", "title": "【新华财经调查】工程机械出海步入深水区 贸易壁垒等挑战凸显", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 85, "date": "2026-08-13", "source": "东方财富公告", "stratum": "公告", "title": "京东方Ａ:关于董事辞职的公告", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 86, "date": "2026-06-30", "source": "东方财富个股新闻", "stratum": "个股", "title": "奥尼电子：实控人吴世杰质押58.53%持股", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 87, "date": "2026-08-12", "source": "东方财富公告", "stratum": "公告", "title": "晨光新材:晨光新材关于部分募投项目终止并将剩余募集资金继续存放在募集资金专户管理的公告", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 88, "date": "2026-09-07", "source": "东财全球资讯", "stratum": "宏观", "title": "长源东谷：拟发行股份收购康豪机电100%股权 作价50.1亿元", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 89, "date": "2026-09-16", "source": "东财全球资讯", "stratum": "宏观", "title": "资管兑付违约引爆赎回潮 土耳其股市触发全市场熔断", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 90, "date": "2026-09-24", "source": "东方财富个股新闻", "stratum": "个股", "title": "爱迪特：多位股东减持完毕", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 91, "date": "2026-09-02", "source": "东方财富个股新闻", "stratum": "个股", "title": "美的集团、五粮液、阳光电源等多家公司披露回购进展", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 92, "date": "2026-10-31", "source": "个股新闻", "stratum": "个股", "title": "北上资金，增持000001超4.7亿股！外资调仓新动向曝光", "label": 2, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 93, "date": "2026-06-02", "source": "东方财富个股新闻", "stratum": "个股", "title": "回盛生物：无逾期对外担保", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 94, "date": "2026-09-28", "source": "个股新闻", "stratum": "个股", "title": "湖南裕能：股东宁德时代减持计划区间届满 合计减持约2.06%股份", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 95, "date": "2026-07-31", "source": "东方财富个股新闻", "stratum": "个股", "title": "钢铁工业有了“数字大脑”——来自河北省的调查", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 96, "date": "2026-09-22", "source": "东财全球资讯", "stratum": "宏观", "title": "华塑控股：持股5%以上股东拟减持不超3%股份", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 97, "date": "2026-06-27", "source": "东方财富个股新闻", "stratum": "个股", "title": "祥鑫科技拟近9倍超高溢价收购液冷公司，商誉减值等风险待解", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 98, "date": "2026-09-08", "source": "同花顺7x24", "stratum": "其他", "title": "全球最大主权财富基金拟大幅减持美债", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 99, "date": "2026-08-19", "source": "东方财富个股新闻", "stratum": "个股", "title": "恒瑞医药：董事会秘书刘笑含辞职，田飞接任", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 100, "date": "2026-10-12", "source": "东方财富个股新闻", "stratum": "个股", "title": "中国移动通信集团广东有限公司原副总经理高志兴被查", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 101, "date": "2026-11-01", "source": "东方财富个股新闻", "stratum": "个股", "title": "阳光私募持仓千余家上市公司 深度梳理16只绩优、超跌、低PE股", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 102, "date": "2026-11-03", "source": "东财全球资讯", "stratum": "宏观", "title": "人民币兑美元中间价报6.7150 下调4点", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 103, "date": "2026-09-21", "source": "东方财富个股新闻", "stratum": "个股", "title": "002860，停牌收购PCB资产", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 104, "date": "2026-10-07", "source": "东财全球资讯", "stratum": "宏观", "title": "中亚股份：实控人及其一致行动人拟合计减持股份不超1177.9万股", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 105, "date": "2026-09-16", "source": "东方财富个股新闻", "stratum": "个股", "title": "【财闻联播】交易员下调英国央行加息押注！伊利股份：拟10亿至20亿元回购股份并注销减资", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 106, "date": "2026-10-08", "source": "社媒热搜", "stratum": "其他", "title": "尊界V800刹车踏板支架断裂", "label": 0, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 107, "date": "2026-07-09", "source": "东方财富个股新闻", "stratum": "个股", "title": "12倍牛股智谱解禁日低开高走，超高估值或成A股IPO困扰", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 108, "date": "2026-09-02", "source": "东方财富个股新闻", "stratum": "个股", "title": "【财闻联播】5连板牛股提醒：公司还在被证监会立案调查中！国际油价，快速跳水", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 109, "date": "2026-08-27", "source": "东方财富个股新闻", "stratum": "个股", "title": "凌云光：1825.37万股限售股9月7日解禁，占总股本3.84%", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 110, "date": "2026-09-18", "source": "东财全球资讯", "stratum": "宏观", "title": "华大九天：大基金拟减持不超1%股份", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 111, "date": "2026-09-22", "source": "东方财富个股新闻", "stratum": "个股", "title": "欣旺达：王明旺质押3335万股用于股权类投资", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 112, "date": "2026-08-25", "source": "东财全球资讯", "stratum": "宏观", "title": "华昌化工：筹划控股权变更事项 股票停牌", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 113, "date": "2026-10-09", "source": "东方财富个股新闻", "stratum": "个股", "title": "央行下调PSL利率并扩大支持领域，红利价值风格备受市场重视，300红利低波ETF嘉实(515300)震荡市优势凸显", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 114, "date": "2026-08-28", "source": "东方财富个股新闻", "stratum": "个股", "title": "当日收涨7.35%，光伏焊带龙头宇邦新材公告筹划控制权变更", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 115, "date": "2026-08-24", "source": "东方财富个股新闻", "stratum": "个股", "title": "联合动力：2026年半年度净亏损8809万元 同比转亏", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 116, "date": "2026-10-27", "source": "东方财富个股新闻", "stratum": "个股", "title": "业绩报喜、回购增持、承诺不减持......10月以来，超700家次沪市公司释放利好", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 117, "date": "2026-10-23", "source": "财联社", "stratum": "其他", "title": "意法半导体拟终止力源信息代理合作", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 118, "date": "2026-07-27", "source": "东方财富个股新闻", "stratum": "个股", "title": "7月27日晚间公告集锦|蓝盾光电拟收购苏州岚创科技控股权股票停牌，东方精工上半年净利润同比增长867.75%%，科大讯飞拟1亿元-2亿元回购股份", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 119, "date": "2026-06-26", "source": "东方财富个股新闻", "stratum": "个股", "title": "突发！这家公司因涉嫌信息披露违法违规被证监会立案|盘后公告集锦", "label": -1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 120, "date": "2026-10-15", "source": "东方财富个股新闻", "stratum": "个股", "title": "回盛生物：控股股东武汉统盛投资有限公司解除质押200万股", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 121, "date": "2026-09-29", "source": "个股新闻", "stratum": "个股", "title": "三峡新材拟跨界收购珠海赛纬，停牌前三日股价明显异动", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 122, "date": "2026-10-28", "source": "财联社", "stratum": "其他", "title": "一博科技：前三季度净利润同比增长834.98% Q3净利润环比增长85%", "label": 2, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 123, "date": "2026-08-22", "source": "东方财富个股新闻", "stratum": "个股", "title": "涉嫌严重违纪违法，贵州茅台酱香酒营销有限公司原总经理陈宗强被查", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 124, "date": "2026-08-09", "source": "东方财富个股新闻", "stratum": "个股", "title": "股市直播|*ST帅电，重大资产重组；两家公司被证监会立案", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 125, "date": "2026-09-30", "source": "中国宏观数据", "stratum": "宏观", "title": "被中央通报虚假贸易问题后，通用技术集团整改：1800余人参加警示教育大会", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 126, "date": "2026-06-11", "source": "东方财富公告", "stratum": "公告", "title": "欣旺达:关于控股股东部分股份质押的公告", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 127, "date": "2026-10-28", "source": "财联社", "stratum": "其他", "title": "美对伊朗战争花费升至470亿美元 较上月增加30多亿美元", "label": 0, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 128, "date": "2026-11-04", "source": "东方财富个股新闻", "stratum": "个股", "title": "恩捷股份：关于股东部分股份质押变动的公告", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 129, "date": "2026-07-21", "source": "东方财富公告", "stratum": "公告", "title": "巨一科技:巨一科技关于股东股份冻结续期的公告", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 130, "date": "2026-08-30", "source": "东方财富个股新闻", "stratum": "个股", "title": "隆基绿能：上半年净亏损36.84亿元", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 131, "date": "2026-10-17", "source": "东方财富个股新闻", "stratum": "个股", "title": "刘健维、任桀、谢治宇又有新动作！加仓谁？减持谁？名单来了", "label": -1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 132, "date": "2026-09-20", "source": "东方财富个股新闻", "stratum": "个股", "title": "“创投大佬”龚虹嘉收警示函背后：中源协和华东总部已退租，“只投大健康”胜算几何？", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 133, "date": "2026-10-18", "source": "东财全球资讯", "stratum": "宏观", "title": "ST绝味：撤销其他风险警示 10月20日复牌", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 134, "date": "2026-10-22", "source": "东财全球资讯", "stratum": "宏观", "title": "国盾量子：前三季度净亏损4707.09万元", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 135, "date": "2026-06-29", "source": "东方财富个股新闻", "stratum": "个股", "title": "湖南裕能第三大股东宁德时代减持；TCL中环半导体材料业务仍处亏损状态｜新能源早参", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 136, "date": "2026-10-29", "source": "东方财富个股新闻", "stratum": "个股", "title": "公募基金三季报出炉！增减持个股一览", "label": -1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 137, "date": "2026-10-11", "source": "社媒热搜", "stratum": "其他", "title": "迈阿密国际4-0华盛顿联", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 138, "date": "2026-10-12", "source": "富途牛牛", "stratum": "其他", "title": "特斯拉Robotaxi涉嫌在学校区域超速 遭美国监管机构审查", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 139, "date": "2026-08-26", "source": "东方财富个股新闻", "stratum": "个股", "title": "誉辰智能(688638.SH)2026年中报净利润为-7508.79万元，同比亏损扩大", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 140, "date": "2026-11-01", "source": "东财全球资讯", "stratum": "宏观", "title": "巴黎检方就宪兵遭投燃烧瓶立案调查", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 141, "date": "2026-07-20", "source": "东方财富个股新闻", "stratum": "个股", "title": "猪价连续两周环比增长！伊利股份、温氏股份涨超3%，养殖ETF汇添富(159172)涨超1%，如何理解本轮生猪产业亏损？行业去化逻辑不改", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 142, "date": "2026-07-25", "source": "东方财富个股新闻", "stratum": "个股", "title": "7家公司半年报分红方案出炉 “宁王”在列！下周2股解禁比例超50%（附股）", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 143, "date": "2026-09-01", "source": "东方财富个股新闻", "stratum": "个股", "title": "腾亚精工：财务总监邢益因个人原因辞职", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 144, "date": "2026-10-19", "source": "社媒热搜", "stratum": "其他", "title": "包装“神药”骗老人 石家庄立案", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 145, "date": "2026-11-01", "source": "东方财富个股新闻", "stratum": "个股", "title": "回购、增持、终止减持……多家A股公司释放积极信号", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 146, "date": "2026-09-26", "source": "东方财富个股新闻", "stratum": "个股", "title": "遭宁德时代等重要股东密集减持、股价腰斩！湖南裕能毅然追加海外项目投资", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 147, "date": "2026-06-22", "source": "东方财富个股新闻", "stratum": "个股", "title": "中船特气明起停牌核查；卫星化学上半年净利润预计同比翻倍｜公告精选", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 148, "date": "2026-08-03", "source": "东方财富个股新闻", "stratum": "个股", "title": "一年内已套现3927万元，晨光新材股东再抛减持计划 公司上半年预亏，股价承压", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 149, "date": "2026-10-29", "source": "东方财富公告", "stratum": "公告", "title": "中国平安:中国平安2026年第三季度报告", "label": -1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 150, "date": "2026-10-30", "source": "东方财富个股新闻", "stratum": "个股", "title": "长江电力：前三季度净利润同比减少6.56%", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 151, "date": "2026-08-06", "source": "东方财富个股新闻", "stratum": "个股", "title": "曾任纪委书记！华侨城（深圳）旅发集团副总冯振中被查", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 152, "date": "2026-06-03", "source": "东方财富个股新闻", "stratum": "个股", "title": "湖南裕能：股东津晟新材料拟减持不超2.5%股份", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 153, "date": "2026-06-25", "source": "东方财富公告", "stratum": "公告", "title": "三一重工:三一重工股份有限公司关于终止续聘H股财务报告审计机构的公告", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 154, "date": "2026-09-01", "source": "华尔街见闻", "stratum": "其他", "title": "上海清算所“风伙台”正式投入运营 36家机构首批接入", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 155, "date": "2026-09-30", "source": "东方财富个股新闻", "stratum": "个股", "title": "预售定金最高收5%，一线城市陆续发布“现售制”细则", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 156, "date": "2026-10-22", "source": "华尔街见闻", "stratum": "其他", "title": "阿联酋外交官努赛贝参选下一任联合国秘书长", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 157, "date": "2026-07-21", "source": "东方财富个股新闻", "stratum": "个股", "title": "二季度公募十大重仓股大洗牌！哪些个股被增减持最多？（附统计）", "label": -1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 158, "date": "2026-10-14", "source": "东财全球资讯", "stratum": "宏观", "title": "康恩贝：股东拟减持公司不超1%股份", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 159, "date": "2026-09-15", "source": "东财全球资讯", "stratum": "宏观", "title": "马斯克旗下X及SpaceXAI撤回对苹果反垄断诉讼 继续追击OpenAI", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 160, "date": "2026-10-13", "source": "社媒热搜", "stratum": "其他", "title": "张雪要给德比斯发2万欧元奖金", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 161, "date": "2026-07-11", "source": "东方财富个股新闻", "stratum": "个股", "title": "出任不足四个月，晶科能源副董事长再离职", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 162, "date": "2026-09-30", "source": "东方财富个股新闻", "stratum": "个股", "title": "美股集体高开；商务部：延长对美国相关做法措施贸易壁垒调查期限；苹果据悉将进军智能家居市场；宁德时代拟推新员工持股计划丨每经晚参", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 163, "date": "2026-10-28", "source": "Finnhub", "stratum": "其他", "title": "Investing in AI beyond Nvidia, Microsoft, and Google earnings today", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 164, "date": "2026-09-29", "source": "中国人民银行", "stratum": "宏观", "title": "降息了！央行下调抵押补充贷款利率0.25个百分点", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 165, "date": "2026-10-17", "source": "东方财富公告", "stratum": "公告", "title": "海康威视:董事、高级管理人员离职管理制度(2026年10月)", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 166, "date": "2026-08-28", "source": "东方财富公告", "stratum": "公告", "title": "万科A:关于累计诉讼、仲裁情况的公告", "label": -1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 167, "date": "2026-10-13", "source": "日本央行BOJ", "stratum": "其他", "title": "The Bank of Japan has been reported to favor pausing interest rate hikes in October, though it may still act in December.", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 168, "date": "2026-08-17", "source": "东方财富个股新闻", "stratum": "个股", "title": "回盛生物：关于控股股东部分股份解除质押的公告", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 169, "date": "2026-06-06", "source": "东方财富个股新闻", "stratum": "个股", "title": "银行黄金结构性存款集体“降息”！有理财机构减持黄金ETF", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 170, "date": "2026-07-18", "source": "东方财富公告", "stratum": "公告", "title": "湖南裕能:中信建投证券股份有限公司关于湖南裕能新能源电池材料股份有限公司终止部分对外投资项目的核查意见", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 171, "date": "2026-08-25", "source": "东方财富个股新闻", "stratum": "个股", "title": "中建环能(300425.SZ)：董事长佟庆远辞职、王哲晓辞任总裁留任董秘并提名董事、杜栋接任总裁", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 172, "date": "2026-08-31", "source": "东方财富个股新闻", "stratum": "个股", "title": "债市公告精选 | 武汉金控上半年亏损15.29亿；中化岩土5.185 亿债券解除违约风险 担保人成都兴城集团代偿", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 173, "date": "2026-09-03", "source": "东财全球资讯", "stratum": "宏观", "title": "聚胶股份：股东郑朝阳拟减持不超3%股份", "label": 0, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 174, "date": "2026-09-14", "source": "东方财富个股新闻", "stratum": "个股", "title": "豫能控股涨停！电力ETF（159146）标的指数继续走强", "label": 1, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 175, "date": "2026-10-08", "source": "社媒热搜", "stratum": "其他", "title": "空房未用暖气被收违约金", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 176, "date": "2026-10-01", "source": "东方财富公告", "stratum": "公告", "title": "创世纪:关于证券事务代表辞职的公告", "label": 1, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 177, "date": "2026-08-15", "source": "东方财富个股新闻", "stratum": "个股", "title": "特朗普称“很快将宣布霍尔木兹海峡为美国领土”；国内汽、柴油价格下调｜21早新闻", "label": 2, "neg_hint": true, "sample": "bear_enriched"}
+{"id": 178, "date": "2026-09-03", "source": "东财全球资讯", "stratum": "宏观", "title": "蒙特利尔银行上调博通目标价", "label": 2, "neg_hint": false, "sample": "bear_enriched"}
+{"id": 179, "date": "2026-06-28", "source": "东方财富个股新闻", "stratum": "个股", "title": "按住定增套利 39家上市公司取消锁价定增 浪潮正蔓延", "label": 2, "neg_hint": true, "sample": "bear_enriched"}

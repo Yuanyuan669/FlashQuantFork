@@ -62,7 +62,11 @@ jobs:
       - name: Run monitor (one round)
         env:
           HF_ENDPOINT: https://hf-mirror.com
-          no_proxy: hf-mirror.com,127.0.0.1,localhost
+          # 与 Pi 本地 cron_monitor.sh 同款：国外源走 mihomo，国内源/镜像/中转站直连。
+          # 工作流不读 shell 脚本里的 export，必须在这里显式给，否则英文源全 ConnectionError。
+          HTTP_PROXY: http://127.0.0.1:7890
+          HTTPS_PROXY: http://127.0.0.1:7890
+          NO_PROXY: localhost,127.0.0.1,eastmoney.com,cls.cn,sina.com.cn,10jqka.com.cn,futunn.com,wallstcn.com,jin10.com,gov.cn,bargo.ai,hf-mirror.com,openai-hk.com
           BARGO_API_KEY: ${{ secrets.BARGO_API_KEY }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
@@ -76,7 +80,9 @@ jobs:
         if: inputs.mode == 'daily'
         env:
           HF_ENDPOINT: https://hf-mirror.com
-          no_proxy: hf-mirror.com,127.0.0.1,localhost
+          HTTP_PROXY: http://127.0.0.1:7890
+          HTTPS_PROXY: http://127.0.0.1:7890
+          NO_PROXY: localhost,127.0.0.1,eastmoney.com,cls.cn,sina.com.cn,10jqka.com.cn,futunn.com,wallstcn.com,jin10.com,gov.cn,bargo.ai,hf-mirror.com,openai-hk.com
           WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
           WECOM_WEBHOOK_DAILY: ${{ secrets.WECOM_WEBHOOK_DAILY }}
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}

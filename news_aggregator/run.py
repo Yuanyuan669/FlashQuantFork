@@ -239,8 +239,9 @@ def build_llm_summary(items, cfg):
 
     try:
         import requests  # noqa: E402
+        url = f"{api_base}/chat/completions"
         r = requests.post(
-            f"{api_base}/chat/completions",
+            url,
             headers={"Authorization": f"Bearer {api_key}"},
             json={
                 "model": model,
@@ -250,7 +251,11 @@ def build_llm_summary(items, cfg):
         )
         data = r.json()
         if "choices" not in data or not data["choices"]:
-            print(f"[summary] LLM 返回异常: {str(data)[:200]}")
+            # 带上实际请求的地址与模型：relay 的端点/模型名配错时只看返回体分辨不出来
+            from urllib.parse import urlsplit
+            p = urlsplit(url)
+            print(f"[summary] LLM 返回异常 (HTTP {r.status_code} {p.scheme}://{p.netloc}{p.path}"
+                  f" model={model}): {str(data)[:200]}")
             return None
         summary = str(data["choices"][0]["message"]["content"] or "").strip()
         if not summary:

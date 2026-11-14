@@ -79,6 +79,57 @@ def dedupe(items):
     return out
 
 
+def day_key(item) -> str:
+    """条目日期键（YYYYMMDD）：ts 形如 '2026-11-14 09:26'。"""
+    return str(item.get("ts") or "").replace("-", "")[:8]
+
+
+def pick_day_items(items, day: str) -> tuple:
+    """按 ts 切出当日条目；当日无条目时回退池内最新有数据的日期（节假日兜底）。
+
+    返回 (items, 实际日期 YYYYMMDD)。修复：此前综述/日报 Top15/推送简报都拿
+    filter_recent(30 天) 池直接按 impact 排序，旧稿（如个股新闻里 11-05 的
+    龙虎榜稿，ts=文章发布时间）会以高影响分混进"今日高影响"。
+    """
+    key = str(day or "").replace("-", "")
+    same = [it for it in items if day_key(it) == key]
+    if same or not items:
+        return same, key
+    latest = max(day_key(it) for it in items)
+    return [it for it in items if day_key(it) == latest], latest
+
+
+def merge_same_event(items) -> tuple:
+    """跨源同题归并：复用告警层指纹（is_same_event），保留 impact 最高一条。
+
+    返回 (merged, n_same)：n_same[id] = 该条吸收的同题转述总数（>=1），
+    口径与告警层 select_alerts 的 n_same（×N源）一致。数字串不同的相近标题
+    （如龙虎榜 09-29 vs 09-30）按告警层规则不算同题，不会被误并。
+    """
+    from news_aggregator.alert_filter import fingerprint, is_same_event
+
+    ranked = sorted(items, key=lambda x: float(x.get("impact") or 0.0), reverse=True)
+    kept_fps, merged, n_same = [], [], {}
+    for it in ranked:
+        try:
+            fp = fingerprint(it.get("title") or "")
+        except Exception:  # noqa: BLE001
+            fp = {}
+        hit = None
+        for idx, kfp in enumerate(kept_fps):
+            if fp and kfp and is_same_event(fp, kfp):
+                hit = idx
+                break
+        if hit is None:
+            kept_fps.append(fp)
+            merged.append(it)
+            n_same[it.get("id")] = 1
+        else:
+            lead = merged[hit]
+            n_same[lead.get("id")] = n_same.get(lead.get("id"), 1) + 1
+    return merged, n_same
+
+
 def append_items_by_date(items: list, raw_dir: pathlib.Path) -> None:
     """按新闻自身日期分组归档到 {raw_dir}/{YYYYMMDD}.jsonl（幂等：跳过文件里已存在的 id）。
 
@@ -313,7 +364,8 @@ def build_report(day: str, items, stats, market, sym_out, summary=None) -> str:
         lines.append("")
 
     # 影响最强新闻（按影响分排序，已在 main 中计算好）
-    ranked = sorted(items, key=lambda x: x.get("impact", 0.0), reverse=True)
+    ranked_all = sorted(items, key=lambda x: x.get("impact", 0.0), reverse=True)
+    ranked, _ = merge_same_event(ranked_all)  # 跨源同题归并，与告警层口径一致
     lines.append("## 影响最强新闻 Top 15")
     lines.append("")
     lines.append("| 影响分 | 情绪 | 来源 | 标题 |")
@@ -348,7 +400,9 @@ def build_push_digest(day: str, items, stats, market, summary=None, top_n: int =
         recent = sorted(market, reverse=True)[:3]
         lines += ["", "**市场情绪（近 {} 日）**".format(len(recent)),
                   " ｜ ".join(f"{d[5:]} {market[d]:+.3f}" for d in recent)]
-    ranked = sorted(items, key=lambda x: x.get("impact", 0.0), reverse=True)[:top_n]
+    ranked_all = sorted(items, key=lambda x: x.get("impact", 0.0), reverse=True)
+    merged, n_same = merge_same_event(ranked_all)
+    ranked = merged[:top_n]
     if ranked:
         lines += ["", "**今日高影响**"]
         for i, it in enumerate(ranked, 1):
@@ -360,8 +414,12 @@ def build_push_digest(day: str, items, stats, market, summary=None, top_n: int =
                 tag = "利好" if sc > 0 else ("利空" if sc < 0 else "中性")
             except (TypeError, ValueError):
                 tag = "-"
+            src = it.get("source") or "-"
+            n = n_same.get(it.get("id")) or 1
+            if n > 1:
+                src = f"{src} ×{n}源"
             lines.append("{}. `{:.2f}` {} · {} · {}".format(
-                i, it.get("impact", 0.0), tag, it.get("source") or "-", text))
+                i, it.get("impact", 0.0), tag, src, text))
     lines += ["", f"> 来源明细、个股情绪与全文见 news/report/{day}.md"]
     return "\n".join(lines)
 
@@ -449,8 +507,12 @@ def main() -> int:
     print(f"[history] 累积历史 -> {HISTORY_PATH}"
           f"（市场 {len(history.get('market', {}))} 天 / 个股 {len(history.get('symbols', {}))} 只）")
 
-    summary = build_llm_summary(items, cfg)
-    md = build_report(args.date, items, stats, market, sym_out, summary)
+    # 综述/日报/简报改用当日口径（day_items）；当日无条目回退最近日期并在日志标注
+    day_items, day_used = pick_day_items(items, args.date)
+    if day_used != args.date:
+        print(f"[agg] {args.date} 当日无条目，综述/日报/简报回退最近日期 {day_used}")
+    summary = build_llm_summary(day_items, cfg)
+    md = build_report(day_used, day_items, stats, market, sym_out, summary)
     report_path = report_dir / f"{args.date}.md"
     report_path.write_text(md, encoding="utf-8")
     print(f"[agg] raw 已按新闻日期归档到 {raw_dir}")
@@ -458,7 +520,7 @@ def main() -> int:
     print(f"[agg] daily_sentiment -> {NEWS_DIR / 'daily_sentiment.json'}")
 
     if args.push:
-        digest = build_push_digest(args.date, items, stats, market, summary)
+        digest = build_push_digest(day_used, day_items, stats, market, summary)
         push_alert(cfg, "财经新闻简报", digest, channel="daily")
 
     # 静态 Dashboard 重建（best-effort，失败不影响聚合主流程）

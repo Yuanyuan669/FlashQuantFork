@@ -471,6 +471,27 @@ def digest_keywords(counter: dict, top_n: int = 8, min_count: int = 1) -> str:
     return " · ".join(f"{k}{v}" for k, v in ranked[:top_n])
 
 
+def count_hot_keywords(cands: list, exclude_sources=("个股新闻", "Finnhub")) -> dict:
+    """热词权重：命中该词的候选条数（同一条对同一词只计一次）。
+
+    逐股 feed 必须排除（2026-11-11 实测 raw 4412 条）：Finnhub 每天几百条
+    模板化公司新闻，AI 428 次命中里 200 次来自它、earnings 78 次里 75 次来自它，
+    混进来词云永远被这两个词霸榜，和当天真正的主线无关。
+    """
+    excl = {str(s) for s in (exclude_sources or ())}
+    cnt: dict = {}
+    for c in cands or []:
+        if str((c.get("item") or {}).get("source") or "") in excl:
+            continue
+        seen = set()
+        for _th, hs in c.get("matched") or []:
+            for h in hs:
+                if h not in seen:
+                    seen.add(h)
+                    cnt[h] = cnt.get(h, 0) + 1
+    return cnt
+
+
 def digest_mainline(counts: dict, order: list) -> str:
     """抬头「主线」：主题×条数，按条数降序（同条数保持首次出现序）。
 
@@ -731,14 +752,9 @@ def run_once(cfg: dict, themes: list, seen: list, cold_start: bool,
     # 热词榜是独立配额（2026-11-09）：原先只统计入选的 8 条，词云等于把列表再念一遍。
     # 改为统计全部过阈值候选，同题多源各计一次（多源互证本身就是强度信号）；
     # 列表预算与词云互不影响，改列表条数不会再把词云一起缩掉。
-    kw_count: dict = {}
-    for c in cands:
-        seen_kw = set()
-        for _th, hs in c["matched"]:
-            for h in hs:
-                if h not in seen_kw:
-                    seen_kw.add(h)
-                    kw_count[h] = kw_count.get(h, 0) + 1
+    # 逐股 feed 排除在外（2026-11-11）：模板化公司新闻会把 AI/earnings 焊死在榜首。
+    kw_exclude = mon_cfg.get("digest_kw_exclude_sources") or ("个股新闻", "Finnhub")
+    kw_count = count_hot_keywords(cands, kw_exclude)
 
     # 资金面（A 股）：主力净流入是「成交额第一」这类行情稿的对照面——涨着但主力净流出
     # 才有出货嫌疑。一轮一次全市场快照（~20s），失败静默跳过，不阻塞推送。

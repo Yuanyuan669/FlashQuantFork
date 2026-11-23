@@ -6,8 +6,9 @@
 """
 
 from news_aggregator.monitor import (_event_dir, _tone_str, build_digest, clip_title,
-                                     compact_header, digest_group, digest_keywords,
-                                     digest_line, digest_mainline, order_themes_by_title)
+                                     compact_header, count_hot_keywords, digest_group,
+                                     digest_keywords, digest_line, digest_mainline,
+                                     order_themes_by_title)
 
 HEADER = ("**[事件告警汇总] 11-06 15:07 · 推送 15 条（过阈值 169 / 新增 901）**\n"
           "热词：算力9 · 回购6 · 三季报5 · 中标3 · 减持2\n"
@@ -111,6 +112,19 @@ def test_keywords_tie_broken_by_name_for_determinism():
 def test_keywords_empty_cases():
     assert digest_keywords({}) == ""
     assert digest_keywords({"算力": 5}, top_n=0) == ""
+
+
+def test_hot_keywords_exclude_per_stock_feeds():
+    """逐股 feed 模板化标题不许进词云：实测 earnings 78 次里 75 次来自 Finnhub。"""
+    cands = [
+        {"item": {"source": "Finnhub"}, "matched": [("财报/公告", ["earnings"]), ("AI/算力", ["AI"])]},
+        {"item": {"source": "个股新闻"}, "matched": [("财报/公告", ["财报"])]},
+        {"item": {"source": "财联社"}, "matched": [("AI/算力", ["AI"]), ("AI/算力", ["AI"])]},
+        {"item": {"source": "金十快讯"}, "matched": [("机器人", ["机器人"])]},
+    ]
+    got = count_hot_keywords(cands)
+    assert got == {"AI": 1, "机器人": 1}      # 同一条对同一词只计一次；逐股源整条跳过
+    assert count_hot_keywords(cands, exclude_sources=())["earnings"] == 1
 
 
 # ---------------- 多空方向 / 主线排序 ----------------
